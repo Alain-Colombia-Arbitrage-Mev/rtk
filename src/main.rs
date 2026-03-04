@@ -1,10 +1,12 @@
 mod aws_cmd;
+mod bun_cmd;
 mod cargo_cmd;
 mod cc_economics;
 mod ccusage;
 mod config;
 mod container;
 mod curl_cmd;
+mod dart_cmd;
 mod deps;
 mod diff_cmd;
 mod discover;
@@ -12,6 +14,7 @@ mod display_helpers;
 mod env_cmd;
 mod filter;
 mod find_cmd;
+mod flutter_cmd;
 mod format_cmd;
 mod gain;
 mod gh_cmd;
@@ -22,6 +25,7 @@ mod grep_cmd;
 mod hook_audit_cmd;
 mod init;
 mod integrity;
+mod jest_cmd;
 mod json_cmd;
 mod learn;
 mod lint_cmd;
@@ -48,6 +52,7 @@ mod tracking;
 mod tree;
 mod tsc_cmd;
 mod utils;
+mod vite_cmd;
 mod vitest_cmd;
 mod wc_cmd;
 mod wget_cmd;
@@ -606,6 +611,38 @@ enum Commands {
         #[arg(short, long, default_value = "7")]
         since: u64,
     },
+
+    /// Flutter commands with compact output
+    Flutter {
+        #[command(subcommand)]
+        command: FlutterCommands,
+    },
+
+    /// Dart commands with compact output
+    Dart {
+        #[command(subcommand)]
+        command: DartCommands,
+    },
+
+    /// Jest test runner with compact output (failures only)
+    Jest {
+        /// Jest arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+
+    /// Vite build tool with compact output
+    Vite {
+        /// Vite arguments (build, dev, preview)
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+
+    /// Bun runtime commands with compact output
+    Bun {
+        #[command(subcommand)]
+        command: BunCommands,
+    },
 }
 
 #[derive(Subcommand)]
@@ -917,6 +954,87 @@ enum GoCommands {
         args: Vec<String>,
     },
     /// Passthrough: runs any unsupported go subcommand directly
+    #[command(external_subcommand)]
+    Other(Vec<OsString>),
+}
+
+#[derive(Subcommand)]
+enum FlutterCommands {
+    /// Run tests with compact output (failures only, 90% token reduction)
+    Test {
+        /// Additional flutter test arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Build with compact output (milestones + final path only)
+    Build {
+        /// Additional flutter build arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Analyze with grouped severity output
+    Analyze {
+        /// Additional flutter analyze arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Pub dependency management with compact output
+    Pub {
+        /// Additional flutter pub arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Passthrough: runs any unsupported flutter subcommand directly
+    #[command(external_subcommand)]
+    Other(Vec<OsString>),
+}
+
+#[derive(Subcommand)]
+enum DartCommands {
+    /// Run tests with compact output (failures only, 85% token reduction)
+    Test {
+        /// Additional dart test arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Analyze with grouped severity output
+    Analyze {
+        /// Additional dart analyze arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Compile with compact output (final result only)
+    Compile {
+        /// Additional dart compile arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Passthrough: runs any unsupported dart subcommand directly
+    #[command(external_subcommand)]
+    Other(Vec<OsString>),
+}
+
+#[derive(Subcommand)]
+enum BunCommands {
+    /// Run tests with compact output (failures only)
+    Test {
+        /// Additional bun test arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Install packages with compact output (strip progress bars)
+    Install {
+        /// Additional bun install arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Build with compact output
+    Build {
+        /// Additional bun build arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Passthrough: runs any unsupported bun subcommand directly
     #[command(external_subcommand)]
     Other(Vec<OsString>),
 }
@@ -1641,6 +1759,12 @@ fn main() -> Result<()> {
                 "playwright" => {
                     playwright_cmd::run(&args[1..], cli.verbose)?;
                 }
+                "jest" => {
+                    jest_cmd::run(&args[1..], cli.verbose)?;
+                }
+                "vite" => {
+                    vite_cmd::run(&args[1..], cli.verbose)?;
+                }
                 _ => {
                     // Generic passthrough with npm boilerplate filter
                     npm_cmd::run(&args, cli.verbose, cli.skip_env)?;
@@ -1686,6 +1810,62 @@ fn main() -> Result<()> {
         Commands::HookAudit { since } => {
             hook_audit_cmd::run(since, cli.verbose)?;
         }
+
+        Commands::Flutter { command } => match command {
+            FlutterCommands::Test { args } => {
+                flutter_cmd::run_test(&args, cli.verbose)?;
+            }
+            FlutterCommands::Build { args } => {
+                flutter_cmd::run_build(&args, cli.verbose)?;
+            }
+            FlutterCommands::Analyze { args } => {
+                flutter_cmd::run_analyze(&args, cli.verbose)?;
+            }
+            FlutterCommands::Pub { args } => {
+                flutter_cmd::run_pub(&args, cli.verbose)?;
+            }
+            FlutterCommands::Other(args) => {
+                flutter_cmd::run_other(&args, cli.verbose)?;
+            }
+        },
+
+        Commands::Dart { command } => match command {
+            DartCommands::Test { args } => {
+                dart_cmd::run_test(&args, cli.verbose)?;
+            }
+            DartCommands::Analyze { args } => {
+                dart_cmd::run_analyze(&args, cli.verbose)?;
+            }
+            DartCommands::Compile { args } => {
+                dart_cmd::run_compile(&args, cli.verbose)?;
+            }
+            DartCommands::Other(args) => {
+                dart_cmd::run_other(&args, cli.verbose)?;
+            }
+        },
+
+        Commands::Jest { args } => {
+            jest_cmd::run(&args, cli.verbose)?;
+        }
+
+        Commands::Vite { args } => {
+            vite_cmd::run(&args, cli.verbose)?;
+        }
+
+        Commands::Bun { command } => match command {
+            BunCommands::Test { args } => {
+                bun_cmd::run_test(&args, cli.verbose)?;
+            }
+            BunCommands::Install { args } => {
+                bun_cmd::run_install(&args, cli.verbose)?;
+            }
+            BunCommands::Build { args } => {
+                bun_cmd::run_build(&args, cli.verbose)?;
+            }
+            BunCommands::Other(args) => {
+                bun_cmd::run_other(&args, cli.verbose)?;
+            }
+        },
 
         Commands::Proxy { args } => {
             use std::process::Command;
@@ -1792,6 +1972,11 @@ fn is_operational_command(cmd: &Commands) -> bool {
             | Commands::Pip { .. }
             | Commands::Go { .. }
             | Commands::GolangciLint { .. }
+            | Commands::Flutter { .. }
+            | Commands::Dart { .. }
+            | Commands::Jest { .. }
+            | Commands::Vite { .. }
+            | Commands::Bun { .. }
     )
 }
 
