@@ -213,6 +213,88 @@ pub fn run_other(args: &[OsString], verbose: u8) -> Result<()> {
     Ok(())
 }
 
+pub fn run_run(args: &[String], verbose: u8) -> Result<()> {
+    let timer = tracking::TimedExecution::start();
+
+    let mut cmd = Command::new("bun");
+    cmd.arg("run");
+    for arg in args {
+        cmd.arg(arg);
+    }
+
+    if verbose > 0 {
+        eprintln!("Running: bun run {}", args.join(" "));
+    }
+
+    let output = cmd
+        .output()
+        .context("Failed to run bun run. Is Bun installed?")?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let raw = format!("{}\n{}", stdout, stderr);
+    let exit_code = output
+        .status
+        .code()
+        .unwrap_or(if output.status.success() { 0 } else { 1 });
+
+    let filtered = filter_bun_run(&strip_ansi(&raw));
+
+    if let Some(hint) = crate::tee::tee_and_hint(&raw, "bun_run", exit_code) {
+        println!("{}\n{}", filtered, hint);
+    } else {
+        println!("{}", filtered);
+    }
+
+    timer.track(
+        &format!("bun run {}", args.join(" ")),
+        &format!("rtk bun run {}", args.join(" ")),
+        &raw,
+        &filtered,
+    );
+
+    if !output.status.success() {
+        std::process::exit(exit_code);
+    }
+
+    Ok(())
+}
+
+pub fn run_outdated(args: &[String], verbose: u8) -> Result<()> {
+    let timer = tracking::TimedExecution::start();
+
+    let mut cmd = Command::new("bun");
+    cmd.arg("outdated");
+    for arg in args {
+        cmd.arg(arg);
+    }
+
+    if verbose > 0 {
+        eprintln!("Running: bun outdated");
+    }
+
+    let output = cmd
+        .output()
+        .context("Failed to run bun outdated. Is Bun installed?")?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let raw = format!("{}\n{}", stdout, stderr);
+
+    let filtered = filter_bun_outdated(&strip_ansi(&stdout));
+
+    if filtered.trim().is_empty() {
+        println!("All packages up-to-date \u{2713}");
+    } else {
+        println!("{}", filtered);
+    }
+
+    timer.track("bun outdated", "rtk bun outdated", &raw, &filtered);
+
+    // bun outdated exits 1 when packages are outdated
+    Ok(())
+}
+
 // --- Filter functions ---
 
 fn filter_bun_test(output: &str) -> String {
@@ -402,12 +484,115 @@ fn filter_bun_build(output: &str) -> String {
     lines.join("\n")
 }
 
+/// Filter bun run output - strip script header, keep meaningful output
+fn filter_bun_run(output: &str) -> String {
+    let mut result = Vec::new();
+    let mut seen_compiled = false;
+
+    for line in output.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        // Skip bun script header "$ next dev" style
+        if trimmed.starts_with('$') && trimmed.len() < 80 {
+            continue;
+        }
+
+        // Skip HMR/progress noise
+        if trimmed.contains("[HMR]")
+            || trimmed.contains("hmr update")
+            || trimmed.contains("waiting for file changes")
+        {
+            continue;
+        }
+
+        // Deduplicate "compiled" messages
+        if trimmed.contains("compiled successfully") || trimmed.contains("Compiled successfully") {
+            if seen_compiled {
+                continue;
+            }
+            seen_compiled = true;
+        }
+
+        result.push(line.to_string());
+    }
+
+    if result.is_empty() {
+        "ok \u{2713}".to_string()
+    } else {
+        result.join("\n")
+    }
+}
+
+/// Filter bun outdated output - parse table format into compact lines
+fn filter_bun_outdated(output: &str) -> String {
+    let mut result = Vec::new();
+
+    for line in output.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty()
+            || trimmed.starts_with("Package")
+            || trimmed.starts_with("Current")
+            || trimmed.contains("───")
+            || trimmed.contains("┌")
+            || trimmed.contains("└")
+            || trimmed.contains("├")
+        {
+            continue;
+        }
+
+        // Parse table rows: "│ package │ current │ update │ latest │"
+        if trimmed.contains('│') {
+            let cells: Vec<&str> = trimmed
+                .split('│')
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .collect();
+            if cells.len() >= 4 {
+                result.push(format!("{}: {} \u{2192} {}", cells[0], cells[1], cells[3]));
+                continue;
+            }
+        }
+
+        // Fallback: parse whitespace-separated
+        let parts: Vec<&str> = trimmed.split_whitespace().collect();
+        if parts.len() >= 4 {
+            result.push(format!("{}: {} \u{2192} {}", parts[0], parts[1], parts[3]));
+        }
+    }
+
+    if result.is_empty() {
+        String::new()
+    } else {
+        format!("{} outdated\n{}", result.len(), result.join("\n"))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn count_tokens(text: &str) -> usize {
         text.split_whitespace().count()
+    }
+
+    #[test]
+    fn test_filter_bun_run() {
+        let output = "$ next dev\n\nReady on http://localhost:3000\n[HMR] connected\n[HMR] updated page.tsx\n";
+        let result = filter_bun_run(output);
+        assert!(!result.contains("[HMR]"));
+        assert!(!result.contains("$ next dev"));
+        assert!(result.contains("localhost:3000"));
+    }
+
+    #[test]
+    fn test_filter_bun_outdated() {
+        let output = "Package  Current  Update  Latest\nlodash   4.17.20  4.17.21 4.17.21\nreact    17.0.2   18.2.0  18.2.0\n";
+        let result = filter_bun_outdated(output);
+        assert!(result.contains("lodash: 4.17.20 \u{2192} 4.17.21"));
+        assert!(result.contains("2 outdated"));
     }
 
     #[test]

@@ -25,6 +25,7 @@ mod gh_cmd;
 mod git;
 mod go_cmd;
 mod golangci_cmd;
+mod gradle_cmd;
 mod grep_cmd;
 mod gt_cmd;
 mod hook_audit_cmd;
@@ -39,10 +40,13 @@ mod lint_cmd;
 mod local_llm;
 mod log_cmd;
 mod ls;
+mod make_cmd;
+mod mvn_cmd;
 mod mypy_cmd;
 mod next_cmd;
 mod node_cmd;
 mod npm_cmd;
+mod nuxt_cmd;
 mod parser;
 mod pip_cmd;
 mod playwright_cmd;
@@ -70,6 +74,7 @@ mod vite_cmd;
 mod vitest_cmd;
 mod wc_cmd;
 mod wget_cmd;
+mod yarn_cmd;
 
 use anyhow::{Context, Result};
 use clap::error::ErrorKind;
@@ -112,6 +117,10 @@ struct Cli {
     /// Set SKIP_ENV_VALIDATION=1 for child processes (Next.js, tsc, lint, prisma)
     #[arg(long = "skip-env", global = true)]
     skip_env: bool,
+
+    /// Maximum tokens in output (truncate with hint). Safety net for any command.
+    #[arg(long = "max-tokens", global = true)]
+    max_tokens: Option<usize>,
 }
 
 #[derive(Subcommand)]
@@ -517,6 +526,13 @@ enum Commands {
         args: Vec<String>,
     },
 
+    /// Nuxt build/generate/dev with compact output (strip Vite noise, keep routes + chunks)
+    Nuxt {
+        /// Nuxt arguments (build, generate, dev, etc.)
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+
     /// ESLint with grouped rule violations
     Lint {
         /// Linter arguments
@@ -567,6 +583,40 @@ enum Commands {
     /// npx with intelligent routing (tsc, eslint, prisma -> specialized filters)
     Npx {
         /// npx arguments (command + options)
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+
+    /// yarn commands with token-optimized output
+    Yarn {
+        #[command(subcommand)]
+        command: YarnCommands,
+    },
+
+    /// Terraform plan/apply with compact output (resource counts only)
+    Terraform {
+        /// Terraform arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+
+    /// Make/cmake with compact output (errors + summary)
+    Make {
+        /// Make arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+
+    /// Maven with compact output (strip downloads, keep errors + BUILD result)
+    Mvn {
+        /// Maven arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+
+    /// Gradle with compact output (strip tasks/downloads, keep errors + BUILD result)
+    Gradle {
+        /// Gradle arguments
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
@@ -845,6 +895,12 @@ enum GitCommands {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Clone repository with compact output (strip progress lines)
+    Clone {
+        /// Git clone arguments (URL, path, flags)
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     /// Passthrough: runs any unsupported git subcommand directly
     #[command(external_subcommand)]
     Other(Vec<OsString>),
@@ -919,6 +975,31 @@ enum NpmCommands {
         args: Vec<String>,
     },
     /// Passthrough: runs any unsupported npm subcommand directly
+    #[command(external_subcommand)]
+    Other(Vec<OsString>),
+}
+
+#[derive(Subcommand)]
+enum YarnCommands {
+    /// Install packages (compact output)
+    Install {
+        /// Additional yarn install arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Show outdated packages (condensed: "pkg: old → new")
+    Outdated {
+        /// Additional yarn outdated arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// List installed packages (compact tree)
+    List {
+        /// Additional yarn list arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Passthrough: runs any unsupported yarn subcommand directly
     #[command(external_subcommand)]
     Other(Vec<OsString>),
 }
@@ -1083,6 +1164,12 @@ enum CargoCommands {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Generate documentation with compact output (strip Documenting/Compiling lines)
+    Doc {
+        /// Additional cargo doc arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     /// Passthrough: runs any unsupported cargo subcommand directly
     #[command(external_subcommand)]
     Other(Vec<OsString>),
@@ -1213,6 +1300,18 @@ enum BunCommands {
     /// Build with compact output
     Build {
         /// Additional bun build arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Run scripts with dev server noise filtering
+    Run {
+        /// Script name and arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Show outdated packages (condensed: "pkg: current → latest")
+    Outdated {
+        /// Additional bun outdated arguments
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
@@ -1621,6 +1720,9 @@ fn main() -> Result<()> {
                         &global_args,
                     )?;
                 }
+                GitCommands::Clone { args } => {
+                    git::run_clone(&args, &global_args, cli.verbose)?;
+                }
                 GitCommands::Other(args) => {
                     git::run_passthrough(&args, &global_args, cli.verbose)?;
                 }
@@ -1995,6 +2097,10 @@ fn main() -> Result<()> {
             next_cmd::run(&args, cli.verbose)?;
         }
 
+        Commands::Nuxt { args } => {
+            nuxt_cmd::run(&args, cli.verbose)?;
+        }
+
         Commands::Lint { args } => {
             lint_cmd::run(&args, cli.verbose)?;
         }
@@ -2029,6 +2135,9 @@ fn main() -> Result<()> {
             }
             CargoCommands::Nextest { args } => {
                 cargo_cmd::run(cargo_cmd::CargoCommand::Nextest, &args, cli.verbose)?;
+            }
+            CargoCommands::Doc { args } => {
+                cargo_cmd::run(cargo_cmd::CargoCommand::Doc, &args, cli.verbose)?;
             }
             CargoCommands::Other(args) => {
                 cargo_cmd::run_passthrough(&args, cli.verbose)?;
@@ -2159,6 +2268,9 @@ fn main() -> Result<()> {
                 }
                 "next" => {
                     next_cmd::run(&args[1..], cli.verbose)?;
+                }
+                "nuxt" | "nuxi" => {
+                    nuxt_cmd::run(&args[1..], cli.verbose)?;
                 }
                 "prettier" => {
                     prettier_cmd::run(&args[1..], cli.verbose)?;
@@ -2293,10 +2405,47 @@ fn main() -> Result<()> {
             BunCommands::Build { args } => {
                 bun_cmd::run_build(&args, cli.verbose)?;
             }
+            BunCommands::Run { args } => {
+                bun_cmd::run_run(&args, cli.verbose)?;
+            }
+            BunCommands::Outdated { args } => {
+                bun_cmd::run_outdated(&args, cli.verbose)?;
+            }
             BunCommands::Other(args) => {
                 bun_cmd::run_other(&args, cli.verbose)?;
             }
         },
+
+        Commands::Yarn { command } => match command {
+            YarnCommands::Install { args } => {
+                yarn_cmd::run(yarn_cmd::YarnCommand::Install, &args, cli.verbose)?;
+            }
+            YarnCommands::Outdated { args } => {
+                yarn_cmd::run(yarn_cmd::YarnCommand::Outdated, &args, cli.verbose)?;
+            }
+            YarnCommands::List { args } => {
+                yarn_cmd::run(yarn_cmd::YarnCommand::List, &args, cli.verbose)?;
+            }
+            YarnCommands::Other(args) => {
+                yarn_cmd::run_passthrough(&args, cli.verbose)?;
+            }
+        },
+
+        Commands::Terraform { args } => {
+            terraform_cmd::run(&args, cli.verbose)?;
+        }
+
+        Commands::Make { args } => {
+            make_cmd::run(&args, cli.verbose)?;
+        }
+
+        Commands::Mvn { args } => {
+            mvn_cmd::run(&args, cli.verbose)?;
+        }
+
+        Commands::Gradle { args } => {
+            gradle_cmd::run(&args, cli.verbose)?;
+        }
 
         Commands::Hook { command } => match command {
             HookCommands::Gemini => {
@@ -2497,6 +2646,7 @@ fn is_operational_command(cmd: &Commands) -> bool {
             | Commands::Prisma { .. }
             | Commands::Tsc { .. }
             | Commands::Next { .. }
+            | Commands::Nuxt { .. }
             | Commands::Lint { .. }
             | Commands::Prettier { .. }
             | Commands::Playwright { .. }
@@ -2516,6 +2666,11 @@ fn is_operational_command(cmd: &Commands) -> bool {
             | Commands::Jest { .. }
             | Commands::Vite { .. }
             | Commands::Bun { .. }
+            | Commands::Yarn { .. }
+            | Commands::Terraform { .. }
+            | Commands::Make { .. }
+            | Commands::Mvn { .. }
+            | Commands::Gradle { .. }
     )
 }
 
