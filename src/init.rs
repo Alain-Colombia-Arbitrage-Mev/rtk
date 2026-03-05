@@ -165,6 +165,34 @@ Overall average: **60-90% token reduction** on common development operations.
 <!-- /rtk-instructions -->
 "##;
 
+// Cursor editor rules (instruction-based, no hooks)
+const CURSOR_RULES: &str = include_str!("../.cursorrules");
+
+/// Run `rtk init --cursor`: generate .cursorrules file
+pub fn run_cursor_mode(global: bool, verbose: u8) -> Result<()> {
+    let path = if global {
+        dirs::home_dir()
+            .context("Could not determine home directory")?
+            .join(".cursorrules")
+    } else {
+        PathBuf::from(".cursorrules")
+    };
+
+    let changed = write_if_changed(&path, CURSOR_RULES, ".cursorrules", verbose)?;
+
+    if changed {
+        println!("Created {}", path.display());
+        println!("\nCursor will now use rtk-prefixed commands for token savings.");
+        if !global {
+            println!("Tip: Add .cursorrules to version control so teammates benefit too.");
+        }
+    } else {
+        println!(".cursorrules already up to date: {}", path.display());
+    }
+
+    Ok(())
+}
+
 /// Main entry point for `rtk init`
 pub fn run(
     global: bool,
@@ -228,12 +256,8 @@ fn ensure_hook_installed(hook_path: &Path, verbose: u8) -> Result<bool> {
     // Store SHA-256 hash for runtime integrity verification.
     // Always store (idempotent) to ensure baseline exists even for
     // hooks installed before integrity checks were added.
-    integrity::store_hash(hook_path).with_context(|| {
-        format!(
-            "Failed to store integrity hash for {}",
-            hook_path.display()
-        )
-    })?;
+    integrity::store_hash(hook_path)
+        .with_context(|| format!("Failed to store integrity hash for {}", hook_path.display()))?;
     if verbose > 0 && changed {
         eprintln!("Stored integrity hash for hook");
     }
@@ -1061,7 +1085,8 @@ pub fn show_config() -> Result<()> {
         Ok(integrity::IntegrityStatus::NoBaseline) => {
             println!("⚠️  Integrity: no baseline hash (run: rtk init -g to establish)");
         }
-        Ok(integrity::IntegrityStatus::NotInstalled) | Ok(integrity::IntegrityStatus::OrphanedHash) => {
+        Ok(integrity::IntegrityStatus::NotInstalled)
+        | Ok(integrity::IntegrityStatus::OrphanedHash) => {
             // Don't show integrity line if hook isn't installed
         }
         Err(_) => {

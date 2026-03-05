@@ -1,6 +1,6 @@
 # rtk - Rust Token Killer
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Cursor Compatible](https://img.shields.io/badge/Cursor-Compatible-blue)](https://cursor.com)
 
 **High-performance CLI proxy to minimize LLM token consumption.**
 
@@ -127,6 +127,15 @@ rtk init --show # Verify hook is installed and executable
 ```
 
 **New in v0.9.5**: Hook-first installation eliminates ~2000 tokens from Claude's context while maintaining full RTK functionality through transparent command rewriting.
+
+### Cursor Editor
+
+```bash
+rtk init --cursor          # Add .cursorrules to current project
+rtk init --cursor --global # Add ~/.cursorrules for all projects
+```
+
+> Note: Cursor lacks a hook API, so integration is instruction-based. The AI is instructed to prefix commands with `rtk` via `.cursorrules`.
 
 ## Global Flags
 

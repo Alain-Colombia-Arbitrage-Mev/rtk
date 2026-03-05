@@ -332,6 +332,10 @@ enum Commands {
         #[arg(long = "hook-only", group = "mode")]
         hook_only: bool,
 
+        /// Generate .cursorrules file for Cursor editor
+        #[arg(long, group = "mode")]
+        cursor: bool,
+
         /// Auto-patch settings.json without prompting
         #[arg(long = "auto-patch", group = "patch")]
         auto_patch: bool,
@@ -1478,6 +1482,7 @@ fn main() -> Result<()> {
             show,
             claude_md,
             hook_only,
+            cursor,
             auto_patch,
             no_patch,
             uninstall,
@@ -1486,6 +1491,8 @@ fn main() -> Result<()> {
                 init::show_config()?;
             } else if uninstall {
                 init::uninstall(global, cli.verbose)?;
+            } else if cursor {
+                init::run_cursor_mode(global, cli.verbose)?;
             } else {
                 let patch_mode = if auto_patch {
                     init::PatchMode::Auto
