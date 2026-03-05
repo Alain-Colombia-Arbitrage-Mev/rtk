@@ -1,10 +1,10 @@
-# RTK (Rust Token Killer) - Cursor Integration
+# RTK (Rust Token Killer) - Windsurf Integration
 #
-# This file instructs Cursor's AI to prefix shell commands with `rtk`
+# This file instructs Windsurf's AI to prefix shell commands with `rtk`
 # for token-optimized output. RTK filters and compresses command output,
 # saving 60-90% of tokens on common development operations.
 #
-# Install: rtk init --cursor
+# Install: rtk init --windsurf
 # Docs: https://github.com/rtk-ai/rtk
 
 ## Golden Rule
@@ -170,7 +170,7 @@ rtk gain                # View token savings statistics
 rtk gain --history      # View command history with savings
 rtk discover            # Analyze Claude Code sessions for missed RTK usage
 rtk proxy <cmd>         # Run command without filtering (for debugging)
-rtk init --cursor       # Generate this .cursorrules file
+rtk init --windsurf     # Generate this .windsurfrules file
 ```
 
 ## Token Savings Overview
