@@ -1,0 +1,192 @@
+# RTK (Rust Token Killer) - GitHub Copilot Integration
+#
+# This file instructs GitHub Copilot's AI to prefix shell commands with `rtk`
+# for token-optimized output. RTK filters and compresses command output,
+# saving 60-90% of tokens on common development operations.
+#
+# Install: rtk init --copilot
+# Docs: https://github.com/rtk-ai/rtk
+
+## Golden Rule
+
+**Always prefix commands with `rtk`**. If RTK has a dedicated filter, it uses it. If not, it passes through unchanged. This means RTK is always safe to use.
+
+**Important**: Even in command chains with `&&`, use `rtk`:
+```bash
+# Wrong
+git add . && git commit -m "msg" && git push
+
+# Correct
+rtk git add . && rtk git commit -m "msg" && rtk git push
+```
+
+## RTK Commands by Workflow
+
+### Build & Compile (70-90% savings)
+```bash
+rtk cargo build         # Cargo build output
+rtk cargo check         # Cargo check output
+rtk cargo clippy        # Clippy warnings grouped by file (80%)
+rtk cargo doc           # Strip Documenting/Compiling lines (70%)
+rtk tsc                 # TypeScript errors grouped by file/code (83%)
+rtk lint                # ESLint/Biome violations grouped (84%)
+rtk prettier --check    # Files needing format only (70%)
+rtk next build          # Next.js build with route metrics (87%)
+rtk nuxt build          # Nuxt build: chunks + routes summary (80%)
+rtk nuxt generate       # Nuxt SSG: page count only (85%)
+rtk nuxt dev            # Nuxt dev: server URL, strip HMR noise
+rtk make                # Make/cmake: errors + compile/link summary (80%)
+rtk gradle build        # Gradle: strip tasks, keep BUILD result (75%)
+rtk mvn package         # Maven: strip downloads, keep BUILD result (80%)
+```
+
+### Test (90-99% savings)
+```bash
+rtk cargo test          # Cargo test failures only (90%)
+rtk vitest run          # Vitest failures only (99.5%)
+rtk playwright test     # Playwright failures only (94%)
+rtk pytest              # Pytest failures only (90%)
+rtk jest                # Jest failures only (90%)
+rtk go test             # Go test failures via JSON streaming (90%)
+rtk flutter test        # Flutter test failures only (90%)
+rtk dart test           # Dart test failures only (85%)
+rtk bun test            # Bun test failures only (90%)
+rtk test <cmd>          # Generic test wrapper - failures only
+```
+
+### Git (59-80% savings)
+```bash
+rtk git status          # Compact status
+rtk git log             # Compact log (works with all git flags)
+rtk git diff            # Compact diff (80%)
+rtk git show            # Compact show (80%)
+rtk git add             # Ultra-compact confirmations (59%)
+rtk git commit          # Ultra-compact confirmations (59%)
+rtk git push            # Ultra-compact confirmations
+rtk git pull            # Ultra-compact confirmations
+rtk git branch          # Compact branch list
+rtk git fetch           # Compact fetch
+rtk git stash           # Compact stash
+rtk git worktree        # Compact worktree
+rtk git clone           # Strip progress lines (80%)
+```
+
+Note: Git passthrough works for ALL subcommands, even those not explicitly listed.
+
+### GitHub (26-87% savings)
+```bash
+rtk gh pr view <num>    # Compact PR view (87%)
+rtk gh pr checks        # Compact PR checks (79%)
+rtk gh run list         # Compact workflow runs (82%)
+rtk gh issue list       # Compact issue list (80%)
+rtk gh api              # Compact API responses (26%)
+```
+
+### JavaScript/TypeScript Tooling (70-90% savings)
+```bash
+rtk pnpm list           # Compact dependency tree (70%)
+rtk pnpm outdated       # Compact outdated packages (80%)
+rtk pnpm install        # Compact install output (90%)
+rtk npm run <script>    # Compact npm script output (dev server filter)
+rtk npm install         # Compact install output (80%)
+rtk npm ci              # Compact CI install (80%)
+rtk npm outdated        # Compact outdated packages (80%)
+rtk yarn install        # Compact yarn install (80%)
+rtk yarn outdated       # Compact outdated packages (80%)
+rtk yarn list           # Compact dependency tree (70%)
+rtk bun run <script>    # Bun scripts with dev server filter
+rtk bun install         # Compact install output (80%)
+rtk bun outdated        # Compact outdated packages
+rtk npx <cmd>           # Compact npx (routes to specialized filters)
+rtk node <script>       # Node.js with warning filter
+rtk prisma              # Prisma without ASCII art (88%)
+rtk vite build          # Vite build compact output
+```
+
+### Python Tooling (70-90% savings)
+```bash
+rtk ruff check          # Ruff linter grouped by rule (80%)
+rtk ruff format --check # Ruff formatter compact (80%)
+rtk pytest              # Pytest failures only (90%)
+rtk mypy                # Mypy errors grouped by file (80%)
+rtk pip list            # Compact package list (auto-detects uv)
+rtk pip outdated        # Compact outdated packages
+rtk pip install         # Strip compilation noise (70%)
+```
+
+### Go Tooling (75-90% savings)
+```bash
+rtk go test             # JSON streaming, failures only (90%)
+rtk go build            # Errors only (80%)
+rtk go vet              # Issues only (75%)
+rtk golangci-lint run   # Grouped by rule (85%)
+```
+
+### Mobile & Cross-Platform (85-90% savings)
+```bash
+rtk flutter test        # Failures only (90%)
+rtk flutter build       # Milestones + final path (85%)
+rtk flutter analyze     # Grouped by severity
+rtk flutter pub get     # Compact dependency output
+rtk dart test           # Failures only (85%)
+rtk dart analyze        # Grouped by severity
+```
+
+### Infrastructure & DevOps (75-85% savings)
+```bash
+rtk docker ps           # Compact container list
+rtk docker images       # Compact image list
+rtk docker logs <c>     # Deduplicated logs
+rtk kubectl get         # Compact resource list
+rtk kubectl logs        # Deduplicated pod logs
+rtk terraform plan      # Resource counts only (80%)
+rtk terraform apply     # Resource counts + summary (80%)
+```
+
+### Files & Search (60-75% savings)
+```bash
+rtk ls <path>           # Tree format, compact (65%)
+rtk read <file>         # Code reading with filtering (60%)
+rtk grep <pattern>      # Search grouped by file (75%)
+rtk find <pattern>      # Find grouped by directory (70%)
+```
+
+### Analysis & Debug (65-90% savings)
+```bash
+rtk err <cmd>           # Filter errors only from any command
+rtk log <file>          # Deduplicated logs with counts
+rtk json <file>         # JSON structure without values
+rtk deps                # Dependency overview
+rtk env                 # Environment variables compact
+rtk summary <cmd>       # Smart summary of command output
+rtk diff                # Ultra-compact diffs
+rtk curl <url>          # Compact HTTP responses (70%)
+rtk wget <url>          # Compact download output (65%)
+```
+
+### Meta Commands
+```bash
+rtk gain                # View token savings statistics
+rtk gain --history      # View command history with savings
+rtk discover            # Analyze Claude Code sessions for missed RTK usage
+rtk proxy <cmd>         # Run command without filtering (for debugging)
+rtk init --copilot      # Generate this copilot-instructions.md file
+```
+
+## Token Savings Overview
+
+| Category | Commands | Typical Savings |
+|----------|----------|-----------------|
+| Tests | vitest, playwright, cargo test, pytest, jest, go test, flutter test | 90-99% |
+| Build | next, nuxt, tsc, lint, prettier, make, gradle, mvn | 70-87% |
+| Git | status, log, diff, add, commit, clone | 59-80% |
+| GitHub | gh pr, gh run, gh issue | 26-87% |
+| Package Managers | pnpm, npm, yarn, bun, pip | 70-90% |
+| Python | ruff, pytest, mypy, pip | 70-90% |
+| Go | go test, go build, golangci-lint | 75-90% |
+| Mobile | flutter, dart | 85-90% |
+| Files | ls, read, grep, find | 60-75% |
+| Infrastructure | docker, kubectl, terraform | 75-85% |
+| Network | curl, wget | 65-70% |
+
+Overall average: **60-90% token reduction** on common development operations.

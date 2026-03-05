@@ -1,10 +1,12 @@
 mod aws_cmd;
+mod bun_cmd;
 mod cargo_cmd;
 mod cc_economics;
 mod ccusage;
 mod config;
 mod container;
 mod curl_cmd;
+mod dart_cmd;
 mod deps;
 mod diff_cmd;
 mod discover;
@@ -12,25 +14,32 @@ mod display_helpers;
 mod env_cmd;
 mod filter;
 mod find_cmd;
+mod flutter_cmd;
 mod format_cmd;
 mod gain;
 mod gh_cmd;
 mod git;
 mod go_cmd;
 mod golangci_cmd;
+mod gradle_cmd;
 mod grep_cmd;
 mod hook_audit_cmd;
 mod init;
 mod integrity;
+mod jest_cmd;
 mod json_cmd;
 mod learn;
 mod lint_cmd;
 mod local_llm;
 mod log_cmd;
 mod ls;
+mod make_cmd;
+mod mvn_cmd;
 mod mypy_cmd;
 mod next_cmd;
+mod node_cmd;
 mod npm_cmd;
+mod nuxt_cmd;
 mod parser;
 mod pip_cmd;
 mod playwright_cmd;
@@ -44,13 +53,16 @@ mod ruff_cmd;
 mod runner;
 mod summary;
 mod tee;
+mod terraform_cmd;
 mod tracking;
 mod tree;
 mod tsc_cmd;
 mod utils;
+mod vite_cmd;
 mod vitest_cmd;
 mod wc_cmd;
 mod wget_cmd;
+mod yarn_cmd;
 
 use anyhow::{Context, Result};
 use clap::error::ErrorKind;
@@ -80,6 +92,10 @@ struct Cli {
     /// Set SKIP_ENV_VALIDATION=1 for child processes (Next.js, tsc, lint, prisma)
     #[arg(long = "skip-env", global = true)]
     skip_env: bool,
+
+    /// Maximum tokens in output (truncate with hint). Safety net for any command.
+    #[arg(long = "max-tokens", global = true)]
+    max_tokens: Option<usize>,
 }
 
 #[derive(Subcommand)]
@@ -327,6 +343,26 @@ enum Commands {
         #[arg(long = "hook-only", group = "mode")]
         hook_only: bool,
 
+        /// Generate .cursorrules file for Cursor editor
+        #[arg(long, group = "mode")]
+        cursor: bool,
+
+        /// Generate .windsurfrules file for Windsurf editor
+        #[arg(long, group = "mode")]
+        windsurf: bool,
+
+        /// Generate .clinerules file for Cline editor
+        #[arg(long, group = "mode")]
+        cline: bool,
+
+        /// Generate .github/copilot-instructions.md for GitHub Copilot
+        #[arg(long, group = "mode")]
+        copilot: bool,
+
+        /// Generate rules files for all supported editors
+        #[arg(long = "all-editors", group = "mode")]
+        all_editors: bool,
+
         /// Auto-patch settings.json without prompting
         #[arg(long = "auto-patch", group = "patch")]
         auto_patch: bool,
@@ -448,6 +484,13 @@ enum Commands {
         args: Vec<String>,
     },
 
+    /// Nuxt build/generate/dev with compact output (strip Vite noise, keep routes + chunks)
+    Nuxt {
+        /// Nuxt arguments (build, generate, dev, etc.)
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+
     /// ESLint with grouped rule violations
     Lint {
         /// Linter arguments
@@ -482,9 +525,15 @@ enum Commands {
         command: CargoCommands,
     },
 
-    /// npm run with filtered output (strip boilerplate)
+    /// npm commands with token-optimized output
     Npm {
-        /// npm run arguments (script name + options)
+        #[command(subcommand)]
+        command: NpmCommands,
+    },
+
+    /// Run Node.js scripts with filtered output (strip warnings, deprecations)
+    Node {
+        /// Node.js arguments (script + options)
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
@@ -492,6 +541,40 @@ enum Commands {
     /// npx with intelligent routing (tsc, eslint, prisma -> specialized filters)
     Npx {
         /// npx arguments (command + options)
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+
+    /// yarn commands with token-optimized output
+    Yarn {
+        #[command(subcommand)]
+        command: YarnCommands,
+    },
+
+    /// Terraform plan/apply with compact output (resource counts only)
+    Terraform {
+        /// Terraform arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+
+    /// Make/cmake with compact output (errors + summary)
+    Make {
+        /// Make arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+
+    /// Maven with compact output (strip downloads, keep errors + BUILD result)
+    Mvn {
+        /// Maven arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+
+    /// Gradle with compact output (strip tasks/downloads, keep errors + BUILD result)
+    Gradle {
+        /// Gradle arguments
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
@@ -606,6 +689,38 @@ enum Commands {
         #[arg(short, long, default_value = "7")]
         since: u64,
     },
+
+    /// Flutter commands with compact output
+    Flutter {
+        #[command(subcommand)]
+        command: FlutterCommands,
+    },
+
+    /// Dart commands with compact output
+    Dart {
+        #[command(subcommand)]
+        command: DartCommands,
+    },
+
+    /// Jest test runner with compact output (failures only)
+    Jest {
+        /// Jest arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+
+    /// Vite build tool with compact output
+    Vite {
+        /// Vite arguments (build, dev, preview)
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+
+    /// Bun runtime commands with compact output
+    Bun {
+        #[command(subcommand)]
+        command: BunCommands,
+    },
 }
 
 #[derive(Subcommand)]
@@ -684,6 +799,12 @@ enum GitCommands {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Clone repository with compact output (strip progress lines)
+    Clone {
+        /// Git clone arguments (URL, path, flags)
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     /// Passthrough: runs any unsupported git subcommand directly
     #[command(external_subcommand)]
     Other(Vec<OsString>),
@@ -727,6 +848,62 @@ enum PnpmCommands {
         args: Vec<String>,
     },
     /// Passthrough: runs any unsupported pnpm subcommand directly
+    #[command(external_subcommand)]
+    Other(Vec<OsString>),
+}
+
+#[derive(Subcommand)]
+enum NpmCommands {
+    /// Run npm scripts with filtered output
+    Run {
+        /// Script name and arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Install packages (compact output)
+    Install {
+        /// Additional npm install arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Clean install from lockfile (compact output)
+    Ci {
+        /// Additional npm ci arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Show outdated packages (condensed: "pkg: old → new")
+    Outdated {
+        /// Additional npm outdated arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Passthrough: runs any unsupported npm subcommand directly
+    #[command(external_subcommand)]
+    Other(Vec<OsString>),
+}
+
+#[derive(Subcommand)]
+enum YarnCommands {
+    /// Install packages (compact output)
+    Install {
+        /// Additional yarn install arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Show outdated packages (condensed: "pkg: old → new")
+    Outdated {
+        /// Additional yarn outdated arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// List installed packages (compact tree)
+    List {
+        /// Additional yarn list arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Passthrough: runs any unsupported yarn subcommand directly
     #[command(external_subcommand)]
     Other(Vec<OsString>),
 }
@@ -891,6 +1068,12 @@ enum CargoCommands {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Generate documentation with compact output (strip Documenting/Compiling lines)
+    Doc {
+        /// Additional cargo doc arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     /// Passthrough: runs any unsupported cargo subcommand directly
     #[command(external_subcommand)]
     Other(Vec<OsString>),
@@ -917,6 +1100,99 @@ enum GoCommands {
         args: Vec<String>,
     },
     /// Passthrough: runs any unsupported go subcommand directly
+    #[command(external_subcommand)]
+    Other(Vec<OsString>),
+}
+
+#[derive(Subcommand)]
+enum FlutterCommands {
+    /// Run tests with compact output (failures only, 90% token reduction)
+    Test {
+        /// Additional flutter test arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Build with compact output (milestones + final path only)
+    Build {
+        /// Additional flutter build arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Analyze with grouped severity output
+    Analyze {
+        /// Additional flutter analyze arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Pub dependency management with compact output
+    Pub {
+        /// Additional flutter pub arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Passthrough: runs any unsupported flutter subcommand directly
+    #[command(external_subcommand)]
+    Other(Vec<OsString>),
+}
+
+#[derive(Subcommand)]
+enum DartCommands {
+    /// Run tests with compact output (failures only, 85% token reduction)
+    Test {
+        /// Additional dart test arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Analyze with grouped severity output
+    Analyze {
+        /// Additional dart analyze arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Compile with compact output (final result only)
+    Compile {
+        /// Additional dart compile arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Passthrough: runs any unsupported dart subcommand directly
+    #[command(external_subcommand)]
+    Other(Vec<OsString>),
+}
+
+#[derive(Subcommand)]
+enum BunCommands {
+    /// Run tests with compact output (failures only)
+    Test {
+        /// Additional bun test arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Install packages with compact output (strip progress bars)
+    Install {
+        /// Additional bun install arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Build with compact output
+    Build {
+        /// Additional bun build arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Run scripts with dev server noise filtering
+    Run {
+        /// Script name and arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Show outdated packages (condensed: "pkg: current → latest")
+    Outdated {
+        /// Additional bun outdated arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Passthrough: runs any unsupported bun subcommand directly
     #[command(external_subcommand)]
     Other(Vec<OsString>),
 }
@@ -1171,6 +1447,9 @@ fn main() -> Result<()> {
                         &global_args,
                     )?;
                 }
+                GitCommands::Clone { args } => {
+                    git::run_clone(&args, &global_args, cli.verbose)?;
+                }
                 GitCommands::Other(args) => {
                     git::run_passthrough(&args, &global_args, cli.verbose)?;
                 }
@@ -1360,6 +1639,11 @@ fn main() -> Result<()> {
             show,
             claude_md,
             hook_only,
+            cursor,
+            windsurf,
+            cline,
+            copilot,
+            all_editors,
             auto_patch,
             no_patch,
             uninstall,
@@ -1368,6 +1652,16 @@ fn main() -> Result<()> {
                 init::show_config()?;
             } else if uninstall {
                 init::uninstall(global, cli.verbose)?;
+            } else if all_editors {
+                init::run_all_editors_mode(global, cli.verbose)?;
+            } else if cursor {
+                init::run_editor_mode(&init::EDITORS[0], global, cli.verbose)?;
+            } else if windsurf {
+                init::run_editor_mode(&init::EDITORS[1], global, cli.verbose)?;
+            } else if cline {
+                init::run_editor_mode(&init::EDITORS[2], global, cli.verbose)?;
+            } else if copilot {
+                init::run_editor_mode(&init::EDITORS[3], global, cli.verbose)?;
             } else {
                 let patch_mode = if auto_patch {
                     init::PatchMode::Auto
@@ -1492,6 +1786,10 @@ fn main() -> Result<()> {
             next_cmd::run(&args, cli.verbose)?;
         }
 
+        Commands::Nuxt { args } => {
+            nuxt_cmd::run(&args, cli.verbose)?;
+        }
+
         Commands::Lint { args } => {
             lint_cmd::run(&args, cli.verbose)?;
         }
@@ -1527,13 +1825,34 @@ fn main() -> Result<()> {
             CargoCommands::Nextest { args } => {
                 cargo_cmd::run(cargo_cmd::CargoCommand::Nextest, &args, cli.verbose)?;
             }
+            CargoCommands::Doc { args } => {
+                cargo_cmd::run(cargo_cmd::CargoCommand::Doc, &args, cli.verbose)?;
+            }
             CargoCommands::Other(args) => {
                 cargo_cmd::run_passthrough(&args, cli.verbose)?;
             }
         },
 
-        Commands::Npm { args } => {
-            npm_cmd::run(&args, cli.verbose, cli.skip_env)?;
+        Commands::Npm { command } => match command {
+            NpmCommands::Run { args } => {
+                npm_cmd::run(npm_cmd::NpmCommand::Run, &args, cli.verbose, cli.skip_env)?;
+            }
+            NpmCommands::Install { args } => {
+                npm_cmd::run(npm_cmd::NpmCommand::Install, &args, cli.verbose, false)?;
+            }
+            NpmCommands::Ci { args } => {
+                npm_cmd::run(npm_cmd::NpmCommand::Ci, &args, cli.verbose, false)?;
+            }
+            NpmCommands::Outdated { args } => {
+                npm_cmd::run(npm_cmd::NpmCommand::Outdated, &args, cli.verbose, false)?;
+            }
+            NpmCommands::Other(args) => {
+                npm_cmd::run_passthrough(&args, cli.verbose)?;
+            }
+        },
+
+        Commands::Node { args } => {
+            node_cmd::run(&args, cli.verbose)?;
         }
 
         Commands::Curl { args } => {
@@ -1635,15 +1954,24 @@ fn main() -> Result<()> {
                 "next" => {
                     next_cmd::run(&args[1..], cli.verbose)?;
                 }
+                "nuxt" | "nuxi" => {
+                    nuxt_cmd::run(&args[1..], cli.verbose)?;
+                }
                 "prettier" => {
                     prettier_cmd::run(&args[1..], cli.verbose)?;
                 }
                 "playwright" => {
                     playwright_cmd::run(&args[1..], cli.verbose)?;
                 }
+                "jest" => {
+                    jest_cmd::run(&args[1..], cli.verbose)?;
+                }
+                "vite" => {
+                    vite_cmd::run(&args[1..], cli.verbose)?;
+                }
                 _ => {
                     // Generic passthrough with npm boilerplate filter
-                    npm_cmd::run(&args, cli.verbose, cli.skip_env)?;
+                    npm_cmd::run(npm_cmd::NpmCommand::Run, &args, cli.verbose, cli.skip_env)?;
                 }
             }
         }
@@ -1685,6 +2013,99 @@ fn main() -> Result<()> {
 
         Commands::HookAudit { since } => {
             hook_audit_cmd::run(since, cli.verbose)?;
+        }
+
+        Commands::Flutter { command } => match command {
+            FlutterCommands::Test { args } => {
+                flutter_cmd::run_test(&args, cli.verbose)?;
+            }
+            FlutterCommands::Build { args } => {
+                flutter_cmd::run_build(&args, cli.verbose)?;
+            }
+            FlutterCommands::Analyze { args } => {
+                flutter_cmd::run_analyze(&args, cli.verbose)?;
+            }
+            FlutterCommands::Pub { args } => {
+                flutter_cmd::run_pub(&args, cli.verbose)?;
+            }
+            FlutterCommands::Other(args) => {
+                flutter_cmd::run_other(&args, cli.verbose)?;
+            }
+        },
+
+        Commands::Dart { command } => match command {
+            DartCommands::Test { args } => {
+                dart_cmd::run_test(&args, cli.verbose)?;
+            }
+            DartCommands::Analyze { args } => {
+                dart_cmd::run_analyze(&args, cli.verbose)?;
+            }
+            DartCommands::Compile { args } => {
+                dart_cmd::run_compile(&args, cli.verbose)?;
+            }
+            DartCommands::Other(args) => {
+                dart_cmd::run_other(&args, cli.verbose)?;
+            }
+        },
+
+        Commands::Jest { args } => {
+            jest_cmd::run(&args, cli.verbose)?;
+        }
+
+        Commands::Vite { args } => {
+            vite_cmd::run(&args, cli.verbose)?;
+        }
+
+        Commands::Bun { command } => match command {
+            BunCommands::Test { args } => {
+                bun_cmd::run_test(&args, cli.verbose)?;
+            }
+            BunCommands::Install { args } => {
+                bun_cmd::run_install(&args, cli.verbose)?;
+            }
+            BunCommands::Build { args } => {
+                bun_cmd::run_build(&args, cli.verbose)?;
+            }
+            BunCommands::Run { args } => {
+                bun_cmd::run_run(&args, cli.verbose)?;
+            }
+            BunCommands::Outdated { args } => {
+                bun_cmd::run_outdated(&args, cli.verbose)?;
+            }
+            BunCommands::Other(args) => {
+                bun_cmd::run_other(&args, cli.verbose)?;
+            }
+        },
+
+        Commands::Yarn { command } => match command {
+            YarnCommands::Install { args } => {
+                yarn_cmd::run(yarn_cmd::YarnCommand::Install, &args, cli.verbose)?;
+            }
+            YarnCommands::Outdated { args } => {
+                yarn_cmd::run(yarn_cmd::YarnCommand::Outdated, &args, cli.verbose)?;
+            }
+            YarnCommands::List { args } => {
+                yarn_cmd::run(yarn_cmd::YarnCommand::List, &args, cli.verbose)?;
+            }
+            YarnCommands::Other(args) => {
+                yarn_cmd::run_passthrough(&args, cli.verbose)?;
+            }
+        },
+
+        Commands::Terraform { args } => {
+            terraform_cmd::run(&args, cli.verbose)?;
+        }
+
+        Commands::Make { args } => {
+            make_cmd::run(&args, cli.verbose)?;
+        }
+
+        Commands::Mvn { args } => {
+            mvn_cmd::run(&args, cli.verbose)?;
+        }
+
+        Commands::Gradle { args } => {
+            gradle_cmd::run(&args, cli.verbose)?;
         }
 
         Commands::Proxy { args } => {
@@ -1780,11 +2201,13 @@ fn is_operational_command(cmd: &Commands) -> bool {
             | Commands::Prisma { .. }
             | Commands::Tsc { .. }
             | Commands::Next { .. }
+            | Commands::Nuxt { .. }
             | Commands::Lint { .. }
             | Commands::Prettier { .. }
             | Commands::Playwright { .. }
             | Commands::Cargo { .. }
             | Commands::Npm { .. }
+            | Commands::Node { .. }
             | Commands::Npx { .. }
             | Commands::Curl { .. }
             | Commands::Ruff { .. }
@@ -1792,6 +2215,16 @@ fn is_operational_command(cmd: &Commands) -> bool {
             | Commands::Pip { .. }
             | Commands::Go { .. }
             | Commands::GolangciLint { .. }
+            | Commands::Flutter { .. }
+            | Commands::Dart { .. }
+            | Commands::Jest { .. }
+            | Commands::Vite { .. }
+            | Commands::Bun { .. }
+            | Commands::Yarn { .. }
+            | Commands::Terraform { .. }
+            | Commands::Make { .. }
+            | Commands::Mvn { .. }
+            | Commands::Gradle { .. }
     )
 }
 
@@ -1918,14 +2351,18 @@ mod tests {
     }
 
     #[test]
-    fn test_try_parse_git_with_dash_c_fails() {
-        // This is the case that triggers fallback: git -C /path status
-        match Cli::try_parse_from(["rtk", "git", "-C", "/path", "status"]) {
-            Err(e) => assert!(!matches!(
-                e.kind(),
-                ErrorKind::DisplayHelp | ErrorKind::DisplayVersion
-            )),
-            Ok(_) => panic!("Expected parse error for git -C"),
+    fn test_parse_git_with_dash_c() {
+        // git -C /path status should parse successfully (directory flag)
+        let cli = Cli::try_parse_from(["rtk", "git", "-C", "/path", "status"]).unwrap();
+        match cli.command {
+            Commands::Git {
+                directory,
+                command: GitCommands::Status { .. },
+                ..
+            } => {
+                assert_eq!(directory, vec!["/path"]);
+            }
+            _ => panic!("Expected Git Status command"),
         }
     }
 

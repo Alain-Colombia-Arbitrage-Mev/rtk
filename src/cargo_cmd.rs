@@ -14,6 +14,7 @@ pub enum CargoCommand {
     Check,
     Install,
     Nextest,
+    Doc,
 }
 
 pub fn run(cmd: CargoCommand, args: &[String], verbose: u8) -> Result<()> {
@@ -24,6 +25,7 @@ pub fn run(cmd: CargoCommand, args: &[String], verbose: u8) -> Result<()> {
         CargoCommand::Check => run_check(args, verbose),
         CargoCommand::Install => run_install(args, verbose),
         CargoCommand::Nextest => run_nextest(args, verbose),
+        CargoCommand::Doc => run_doc(args, verbose),
     }
 }
 
@@ -100,6 +102,10 @@ fn run_install(args: &[String], verbose: u8) -> Result<()> {
 
 fn run_nextest(args: &[String], verbose: u8) -> Result<()> {
     run_cargo_filtered("nextest", args, verbose, filter_cargo_nextest)
+}
+
+fn run_doc(args: &[String], verbose: u8) -> Result<()> {
+    run_cargo_filtered("doc", args, verbose, filter_cargo_doc)
 }
 
 /// Format crate name + version into a display string
@@ -946,6 +952,69 @@ pub fn run_passthrough(args: &[OsString], verbose: u8) -> Result<()> {
     Ok(())
 }
 
+/// Filter cargo doc output - strip "Documenting X" lines, keep errors/warnings + summary
+fn filter_cargo_doc(output: &str) -> String {
+    let mut documented = 0usize;
+    let mut errors: Vec<String> = Vec::new();
+    let mut warnings: Vec<String> = Vec::new();
+    for line in output.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        // Count "Documenting" lines
+        if trimmed.contains("Documenting") {
+            documented += 1;
+            continue;
+        }
+
+        // Skip "Checking", "Compiling", "Finished", "Generated" lines
+        if trimmed.contains("Checking")
+            || trimmed.contains("Compiling")
+            || trimmed.contains("Finished")
+            || trimmed.contains("Generated")
+        {
+            continue;
+        }
+
+        // Keep errors
+        if trimmed.contains("error") || trimmed.contains("Error") {
+            errors.push(trimmed.to_string());
+            continue;
+        }
+
+        // Keep warnings (but not "generated N warnings")
+        if trimmed.contains("warning") && !trimmed.contains("generated") {
+            warnings.push(trimmed.to_string());
+        }
+    }
+
+    let mut result = Vec::new();
+
+    if !errors.is_empty() {
+        for e in errors.iter().take(10) {
+            result.push(e.clone());
+        }
+    }
+
+    if !warnings.is_empty() {
+        for w in warnings.iter().take(5) {
+            result.push(w.clone());
+        }
+    }
+
+    if documented > 0 {
+        result.push(format!("{} crates documented ok \u{2713}", documented));
+    }
+
+    if result.is_empty() {
+        "ok \u{2713}".to_string()
+    } else {
+        result.join("\n")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1602,6 +1671,62 @@ error: test run failed
             1,
             "should have exactly 1 FAIL header (no post-summary duplicate): {}",
             result
+        );
+    }
+
+    #[test]
+    fn test_filter_cargo_doc() {
+        let output = r#"   Documenting serde v1.0.200
+   Documenting clap v4.5.0
+   Documenting anyhow v1.0.80
+   Documenting rusqlite v0.31.0
+   Documenting rtk v0.24.0
+    Finished `dev` profile [unoptimized] target(s) in 15.23s
+     Generated /Users/user/rtk/target/doc/rtk/index.html documentation
+"#;
+        let result = filter_cargo_doc(output);
+        assert!(!result.contains("Documenting"), "got: {}", result);
+        assert!(result.contains("5 crates documented"), "got: {}", result);
+    }
+
+    #[test]
+    fn test_filter_cargo_doc_with_errors() {
+        let output = r#"   Documenting rtk v0.24.0
+error: could not document `rtk`
+error: unresolved link to `NonExistent`
+warning: missing documentation for public function
+"#;
+        let result = filter_cargo_doc(output);
+        assert!(result.contains("error:"), "got: {}", result);
+        assert!(result.contains("missing documentation"), "got: {}", result);
+    }
+
+    #[test]
+    fn test_filter_cargo_doc_savings() {
+        let raw = r#"   Compiling proc-macro2 v1.0.78
+   Compiling unicode-ident v1.0.12
+   Compiling quote v1.0.35
+   Compiling syn v2.0.48
+   Checking serde_derive v1.0.200
+   Checking serde v1.0.200
+   Documenting serde v1.0.200
+   Documenting clap v4.5.0
+   Documenting anyhow v1.0.80
+   Documenting rusqlite v0.31.0
+   Documenting regex v1.10.0
+   Documenting colored v2.0.0
+   Documenting rtk v0.24.0
+    Finished `dev` profile [unoptimized] target(s) in 15.23s
+     Generated /Users/user/rtk/target/doc/rtk/index.html documentation
+"#;
+        let filtered = filter_cargo_doc(raw);
+        let input_t = raw.split_whitespace().count();
+        let output_t = filtered.split_whitespace().count();
+        let savings = 100.0 - (output_t as f64 / input_t as f64 * 100.0);
+        assert!(
+            savings >= 70.0,
+            "Expected >=70% savings, got {:.1}%",
+            savings
         );
     }
 
