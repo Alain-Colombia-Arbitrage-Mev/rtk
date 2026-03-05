@@ -1362,6 +1362,87 @@ fn filter_worktree_list(output: &str) -> String {
 }
 
 /// Runs an unsupported git subcommand by passing it through directly
+pub fn run_clone(args: &[String], global_args: &[String], verbose: u8) -> Result<()> {
+    let timer = tracking::TimedExecution::start();
+
+    if verbose > 0 {
+        eprintln!("Running: git clone {}", args.join(" "));
+    }
+
+    let output = git_cmd(global_args)
+        .arg("clone")
+        .arg("--progress")
+        .args(args)
+        .output()
+        .context("Failed to run git clone")?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    // git clone writes progress to stderr
+    let raw = format!("{}\n{}", stdout, stderr);
+
+    let filtered = filter_git_clone(&raw);
+    println!("{}", filtered);
+
+    timer.track(
+        &format!("git clone {}", args.join(" ")),
+        &format!("rtk git clone {}", args.join(" ")),
+        &raw,
+        &filtered,
+    );
+
+    if !output.status.success() {
+        std::process::exit(output.status.code().unwrap_or(1));
+    }
+    Ok(())
+}
+
+/// Filter git clone output - strip progress percentages, show compact summary
+fn filter_git_clone(output: &str) -> String {
+    let mut repo_name: Option<String> = None;
+    let mut errors: Vec<String> = Vec::new();
+
+    for line in output.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        // Capture "Cloning into 'name'..."
+        if trimmed.starts_with("Cloning into") {
+            repo_name = trimmed.split('\'').nth(1).map(|s| s.to_string());
+            continue;
+        }
+
+        // Skip progress lines (Receiving/Resolving/Counting/Compressing)
+        if trimmed.starts_with("Receiving objects:")
+            || trimmed.starts_with("Resolving deltas:")
+            || trimmed.starts_with("Counting objects:")
+            || trimmed.starts_with("Compressing objects:")
+            || trimmed.starts_with("remote: Counting")
+            || trimmed.starts_with("remote: Compressing")
+            || trimmed.starts_with("remote: Total")
+            || trimmed.starts_with("remote: Enumerating")
+        {
+            continue;
+        }
+
+        // Keep errors
+        if trimmed.starts_with("fatal:") || trimmed.starts_with("error:") {
+            errors.push(trimmed.to_string());
+        }
+    }
+
+    if !errors.is_empty() {
+        return errors.join("\n");
+    }
+
+    match repo_name {
+        Some(name) => format!("Cloned '{}' \u{2713}", name),
+        None => "ok \u{2713}".to_string(),
+    }
+}
+
 pub fn run_passthrough(args: &[OsString], global_args: &[String], verbose: u8) -> Result<()> {
     let timer = tracking::TimedExecution::start();
 
@@ -1777,5 +1858,48 @@ no changes added to commit (use "git add" and/or "git commit -a")
                 "footer: refs #202"
             ]
         );
+    }
+
+    #[test]
+    fn test_filter_git_clone() {
+        let output = r#"Cloning into 'my-project'...
+remote: Enumerating objects: 1234, done.
+remote: Counting objects: 100% (1234/1234), done.
+remote: Compressing objects: 100% (890/890), done.
+Receiving objects: 100% (1234/1234), 45.67 MiB | 12.34 MiB/s, done.
+Resolving deltas: 100% (567/567), done.
+"#;
+        let result = filter_git_clone(output);
+        assert!(result.contains("Cloned 'my-project'"), "got: {}", result);
+        assert!(!result.contains("Receiving"), "got: {}", result);
+        assert!(!result.contains("Resolving"), "got: {}", result);
+        assert!(!result.contains("remote:"), "got: {}", result);
+    }
+
+    #[test]
+    fn test_filter_git_clone_savings() {
+        let raw = r#"Cloning into 'large-repo'...
+remote: Enumerating objects: 50000, done.
+remote: Counting objects: 100% (50000/50000), done.
+remote: Compressing objects: 100% (35000/35000), done.
+Receiving objects: 100% (50000/50000), 234.56 MiB | 8.90 MiB/s, done.
+Resolving deltas: 100% (25000/25000), done.
+"#;
+        let filtered = filter_git_clone(raw);
+        let input_t = raw.split_whitespace().count();
+        let output_t = filtered.split_whitespace().count();
+        let savings = 100.0 - (output_t as f64 / input_t as f64 * 100.0);
+        assert!(
+            savings >= 80.0,
+            "Expected >=80% savings, got {:.1}%",
+            savings
+        );
+    }
+
+    #[test]
+    fn test_filter_git_clone_error() {
+        let output = "Cloning into 'repo'...\nfatal: repository 'https://bad.url' not found\n";
+        let result = filter_git_clone(output);
+        assert!(result.contains("fatal:"), "got: {}", result);
     }
 }
