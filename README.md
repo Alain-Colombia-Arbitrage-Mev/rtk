@@ -114,14 +114,19 @@ The hook transparently rewrites Bash commands (e.g., `git status` -> `rtk git st
 
 **Important:** the hook only runs on Bash tool calls. Claude Code built-in tools like `Read`, `Grep`, and `Glob` do not pass through the Bash hook, so they are not auto-rewritten. To get RTK's compact output for those workflows, use shell commands (`cat`/`head`/`tail`, `rg`/`grep`, `find`) or call `rtk read`, `rtk grep`, or `rtk find` directly.
 
-### Cursor Editor
+### AI Editor Integration
 
 ```bash
-rtk init --cursor          # Add .cursorrules to current project
-rtk init --cursor --global # Add ~/.cursorrules for all projects
+rtk init --cursor          # Cursor (.cursorrules)
+rtk init --windsurf        # Windsurf (.windsurfrules)
+rtk init --cline           # Cline (.clinerules)
+rtk init --copilot         # GitHub Copilot (.github/copilot-instructions.md)
+rtk init --all-editors     # All of the above
 ```
 
-> Note: Cursor lacks a hook API, so integration is instruction-based. The AI is instructed to prefix commands with `rtk` via `.cursorrules`.
+Add `--global` to any flag above to install to the home directory instead of the current project.
+
+> Note: These editors lack a hook API, so integration is instruction-based. The AI is instructed to prefix commands with `rtk` via each editor's rules file.
 
 ## How It Works
 
@@ -182,6 +187,11 @@ rtk playwright test             # E2E results (failures only)
 rtk pytest                      # Python tests (-90%)
 rtk go test                     # Go tests (NDJSON, -90%)
 rtk cargo test                  # Cargo tests (-90%)
+rtk npm run dev                  # Dev server (strip HMR noise, 70% reduction)
+rtk npm install                  # Compact install summary (80% reduction)
+rtk npm ci                       # Compact ci summary (80% reduction)
+rtk npm outdated                 # "pkg: current -> latest" format (80% reduction)
+rtk node script.js               # Strip Node.js warnings/deprecations
 ```
 
 ### Build & Lint
@@ -365,6 +375,8 @@ cp hooks/opencode-rtk.ts ~/.config/opencode/plugins/rtk.ts
 | `docker ps/images/logs` | `rtk docker ...` |
 | `kubectl get/logs` | `rtk kubectl ...` |
 | `curl` | `rtk curl` |
+| `npm run/install/ci/outdated` | `rtk npm ...` |
+| `node <script>` | `rtk node <script>` |
 | `pnpm list/outdated` | `rtk pnpm ...` |
 
 Commands already using `rtk`, heredocs (`<<`), and unrecognized commands pass through unchanged.
