@@ -34,6 +34,7 @@ mod log_cmd;
 mod ls;
 mod mypy_cmd;
 mod next_cmd;
+mod node_cmd;
 mod npm_cmd;
 mod parser;
 mod pip_cmd;
@@ -336,6 +337,22 @@ enum Commands {
         #[arg(long, group = "mode")]
         cursor: bool,
 
+        /// Generate .windsurfrules file for Windsurf editor
+        #[arg(long, group = "mode")]
+        windsurf: bool,
+
+        /// Generate .clinerules file for Cline editor
+        #[arg(long, group = "mode")]
+        cline: bool,
+
+        /// Generate .github/copilot-instructions.md for GitHub Copilot
+        #[arg(long, group = "mode")]
+        copilot: bool,
+
+        /// Generate rules files for all supported editors
+        #[arg(long = "all-editors", group = "mode")]
+        all_editors: bool,
+
         /// Auto-patch settings.json without prompting
         #[arg(long = "auto-patch", group = "patch")]
         auto_patch: bool,
@@ -491,9 +508,15 @@ enum Commands {
         command: CargoCommands,
     },
 
-    /// npm run with filtered output (strip boilerplate)
+    /// npm commands with token-optimized output
     Npm {
-        /// npm run arguments (script name + options)
+        #[command(subcommand)]
+        command: NpmCommands,
+    },
+
+    /// Run Node.js scripts with filtered output (strip warnings, deprecations)
+    Node {
+        /// Node.js arguments (script + options)
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
@@ -768,6 +791,37 @@ enum PnpmCommands {
         args: Vec<String>,
     },
     /// Passthrough: runs any unsupported pnpm subcommand directly
+    #[command(external_subcommand)]
+    Other(Vec<OsString>),
+}
+
+#[derive(Subcommand)]
+enum NpmCommands {
+    /// Run npm scripts with filtered output
+    Run {
+        /// Script name and arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Install packages (compact output)
+    Install {
+        /// Additional npm install arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Clean install from lockfile (compact output)
+    Ci {
+        /// Additional npm ci arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Show outdated packages (condensed: "pkg: old → new")
+    Outdated {
+        /// Additional npm outdated arguments
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Passthrough: runs any unsupported npm subcommand directly
     #[command(external_subcommand)]
     Other(Vec<OsString>),
 }
@@ -1483,6 +1537,10 @@ fn main() -> Result<()> {
             claude_md,
             hook_only,
             cursor,
+            windsurf,
+            cline,
+            copilot,
+            all_editors,
             auto_patch,
             no_patch,
             uninstall,
@@ -1491,8 +1549,16 @@ fn main() -> Result<()> {
                 init::show_config()?;
             } else if uninstall {
                 init::uninstall(global, cli.verbose)?;
+            } else if all_editors {
+                init::run_all_editors_mode(global, cli.verbose)?;
             } else if cursor {
-                init::run_cursor_mode(global, cli.verbose)?;
+                init::run_editor_mode(&init::EDITORS[0], global, cli.verbose)?;
+            } else if windsurf {
+                init::run_editor_mode(&init::EDITORS[1], global, cli.verbose)?;
+            } else if cline {
+                init::run_editor_mode(&init::EDITORS[2], global, cli.verbose)?;
+            } else if copilot {
+                init::run_editor_mode(&init::EDITORS[3], global, cli.verbose)?;
             } else {
                 let patch_mode = if auto_patch {
                     init::PatchMode::Auto
@@ -1657,8 +1723,26 @@ fn main() -> Result<()> {
             }
         },
 
-        Commands::Npm { args } => {
-            npm_cmd::run(&args, cli.verbose, cli.skip_env)?;
+        Commands::Npm { command } => match command {
+            NpmCommands::Run { args } => {
+                npm_cmd::run(npm_cmd::NpmCommand::Run, &args, cli.verbose, cli.skip_env)?;
+            }
+            NpmCommands::Install { args } => {
+                npm_cmd::run(npm_cmd::NpmCommand::Install, &args, cli.verbose, false)?;
+            }
+            NpmCommands::Ci { args } => {
+                npm_cmd::run(npm_cmd::NpmCommand::Ci, &args, cli.verbose, false)?;
+            }
+            NpmCommands::Outdated { args } => {
+                npm_cmd::run(npm_cmd::NpmCommand::Outdated, &args, cli.verbose, false)?;
+            }
+            NpmCommands::Other(args) => {
+                npm_cmd::run_passthrough(&args, cli.verbose)?;
+            }
+        },
+
+        Commands::Node { args } => {
+            node_cmd::run(&args, cli.verbose)?;
         }
 
         Commands::Curl { args } => {
@@ -1774,7 +1858,7 @@ fn main() -> Result<()> {
                 }
                 _ => {
                     // Generic passthrough with npm boilerplate filter
-                    npm_cmd::run(&args, cli.verbose, cli.skip_env)?;
+                    npm_cmd::run(npm_cmd::NpmCommand::Run, &args, cli.verbose, cli.skip_env)?;
                 }
             }
         }
@@ -1972,6 +2056,7 @@ fn is_operational_command(cmd: &Commands) -> bool {
             | Commands::Playwright { .. }
             | Commands::Cargo { .. }
             | Commands::Npm { .. }
+            | Commands::Node { .. }
             | Commands::Npx { .. }
             | Commands::Curl { .. }
             | Commands::Ruff { .. }

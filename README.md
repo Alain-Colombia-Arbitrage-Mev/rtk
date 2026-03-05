@@ -128,14 +128,19 @@ rtk init --show # Verify hook is installed and executable
 
 **New in v0.9.5**: Hook-first installation eliminates ~2000 tokens from Claude's context while maintaining full RTK functionality through transparent command rewriting.
 
-### Cursor Editor
+### AI Editor Integration
 
 ```bash
-rtk init --cursor          # Add .cursorrules to current project
-rtk init --cursor --global # Add ~/.cursorrules for all projects
+rtk init --cursor          # Cursor (.cursorrules)
+rtk init --windsurf        # Windsurf (.windsurfrules)
+rtk init --cline           # Cline (.clinerules)
+rtk init --copilot         # GitHub Copilot (.github/copilot-instructions.md)
+rtk init --all-editors     # All of the above
 ```
 
-> Note: Cursor lacks a hook API, so integration is instruction-based. The AI is instructed to prefix commands with `rtk` via `.cursorrules`.
+Add `--global` to any flag above to install to the home directory instead of the current project.
+
+> Note: These editors lack a hook API, so integration is instruction-based. The AI is instructed to prefix commands with `rtk` via each editor's rules file.
 
 ## Global Flags
 
@@ -184,6 +189,11 @@ rtk pytest                       # Python tests (failures only, 90% reduction)
 rtk pip list                     # Python packages (auto-detect uv, 70% reduction)
 rtk go test                      # Go tests (NDJSON, 90% reduction)
 rtk golangci-lint run            # Go linting (JSON, 85% reduction)
+rtk npm run dev                  # Dev server (strip HMR noise, 70% reduction)
+rtk npm install                  # Compact install summary (80% reduction)
+rtk npm ci                       # Compact ci summary (80% reduction)
+rtk npm outdated                 # "pkg: current → latest" format (80% reduction)
+rtk node script.js               # Strip Node.js warnings/deprecations
 ```
 
 ### Data & Analytics
@@ -637,6 +647,8 @@ The hook is included in this repository at `.claude/hooks/rtk-rewrite.sh`. To us
 | `docker ps/images/logs` | `rtk docker ...` |
 | `kubectl get/logs` | `rtk kubectl ...` |
 | `curl` | `rtk curl` |
+| `npm run/install/ci/outdated` | `rtk npm ...` |
+| `node <script>` | `rtk node <script>` |
 | `pnpm list/ls/outdated` | `rtk pnpm ...` |
 
 Commands already using `rtk`, heredocs (`<<`), and unrecognized commands pass through unchanged.
