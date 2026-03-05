@@ -6,6 +6,8 @@
   <strong>High-performance CLI proxy that reduces LLM token consumption by 60-90%</strong>
 </p>
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Cursor Compatible](https://img.shields.io/badge/Cursor-Compatible-blue)](https://cursor.com)
+
 <p align="center">
   <a href="https://github.com/rtk-ai/rtk/actions"><img src="https://github.com/rtk-ai/rtk/workflows/Security%20Check/badge.svg" alt="CI"></a>
   <a href="https://github.com/rtk-ai/rtk/releases"><img src="https://img.shields.io/github/v/release/rtk-ai/rtk" alt="Release"></a>
@@ -111,6 +113,15 @@ git status  # Automatically rewritten to rtk git status
 The hook transparently rewrites Bash commands (e.g., `git status` -> `rtk git status`) before execution. Claude never sees the rewrite, it just gets compressed output.
 
 **Important:** the hook only runs on Bash tool calls. Claude Code built-in tools like `Read`, `Grep`, and `Glob` do not pass through the Bash hook, so they are not auto-rewritten. To get RTK's compact output for those workflows, use shell commands (`cat`/`head`/`tail`, `rg`/`grep`, `find`) or call `rtk read`, `rtk grep`, or `rtk find` directly.
+
+### Cursor Editor
+
+```bash
+rtk init --cursor          # Add .cursorrules to current project
+rtk init --cursor --global # Add ~/.cursorrules for all projects
+```
+
+> Note: Cursor lacks a hook API, so integration is instruction-based. The AI is instructed to prefix commands with `rtk` via `.cursorrules`.
 
 ## How It Works
 

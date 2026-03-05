@@ -203,6 +203,34 @@ Overall average: **60-90% token reduction** on common development operations.
 <!-- /rtk-instructions -->
 "##;
 
+// Cursor editor rules (instruction-based, no hooks)
+const CURSOR_RULES: &str = include_str!("../.cursorrules");
+
+/// Run `rtk init --cursor`: generate .cursorrules file
+pub fn run_cursor_mode(global: bool, verbose: u8) -> Result<()> {
+    let path = if global {
+        dirs::home_dir()
+            .context("Could not determine home directory")?
+            .join(".cursorrules")
+    } else {
+        PathBuf::from(".cursorrules")
+    };
+
+    let changed = write_if_changed(&path, CURSOR_RULES, ".cursorrules", verbose)?;
+
+    if changed {
+        println!("Created {}", path.display());
+        println!("\nCursor will now use rtk-prefixed commands for token savings.");
+        if !global {
+            println!("Tip: Add .cursorrules to version control so teammates benefit too.");
+        }
+    } else {
+        println!(".cursorrules already up to date: {}", path.display());
+    }
+
+    Ok(())
+}
+
 /// Main entry point for `rtk init`
 #[allow(clippy::too_many_arguments)]
 pub fn run(

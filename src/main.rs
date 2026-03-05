@@ -371,6 +371,10 @@ enum Commands {
         #[arg(long = "hook-only", group = "mode")]
         hook_only: bool,
 
+        /// Generate .cursorrules file for Cursor editor
+        #[arg(long, group = "mode")]
+        cursor: bool,
+
         /// Auto-patch settings.json without prompting
         #[arg(long = "auto-patch", group = "patch")]
         auto_patch: bool,
@@ -1771,6 +1775,7 @@ fn main() -> Result<()> {
             show,
             claude_md,
             hook_only,
+            cursor,
             auto_patch,
             no_patch,
             uninstall,
