@@ -6,6 +6,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct Position {
     #[serde(rename = "Filename")]
     filename: String,
@@ -18,6 +19,7 @@ struct Position {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct Issue {
     #[serde(rename = "FromLinter")]
     from_linter: String,

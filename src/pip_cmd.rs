@@ -217,7 +217,7 @@ fn filter_pip_install(output: &str) -> String {
         // Track wheel building
         if trimmed.contains("Building wheel for") {
             if let Some(pkg) = trimmed.split("Building wheel for").nth(1) {
-                let name = pkg.trim().split_whitespace().next().unwrap_or("");
+                let name = pkg.split_whitespace().next().unwrap_or("");
                 current_wheel = Some(name.to_string());
                 building_wheel = true;
             }

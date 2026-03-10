@@ -62,6 +62,7 @@ fn run_install(args: &[String], verbose: u8) -> Result<()> {
 
 /// yarn outdated JSON structure
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct YarnOutdatedEntry {
     #[serde(default)]
     current: String,

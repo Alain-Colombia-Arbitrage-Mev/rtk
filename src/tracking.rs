@@ -567,6 +567,7 @@ impl Tracker {
         })
     }
 
+    #[allow(clippy::type_complexity)]
     fn get_by_command(
         &self,
         project_path: Option<&str>, // added
@@ -979,6 +980,7 @@ fn get_db_path() -> Result<PathBuf> {
 
 /// Individual parse failure record.
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct ParseFailureRecord {
     pub timestamp: String,
     pub raw_command: String,

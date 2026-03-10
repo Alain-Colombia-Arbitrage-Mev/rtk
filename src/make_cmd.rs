@@ -90,7 +90,7 @@ fn filter_make(output: &str) -> String {
                 linked += 1;
                 // Extract target name
                 if let Some(target) = trimmed.split("Linking").nth(1) {
-                    let name = target.trim().split_whitespace().last().unwrap_or("");
+                    let name = target.split_whitespace().last().unwrap_or("");
                     if !name.is_empty() {
                         targets_built.push(name.to_string());
                     }

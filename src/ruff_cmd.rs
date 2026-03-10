@@ -6,6 +6,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct RuffLocation {
     #[allow(dead_code)]
     row: usize,
@@ -20,6 +21,7 @@ struct RuffFix {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct RuffDiagnostic {
     code: String,
     #[allow(dead_code)]

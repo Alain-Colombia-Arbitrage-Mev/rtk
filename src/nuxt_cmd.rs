@@ -278,6 +278,11 @@ fn filter_nuxt_generate(output: &str) -> String {
     let mut errors: Vec<String> = Vec::new();
     let mut build_time = String::new();
 
+    lazy_static::lazy_static! {
+        static ref RE_ROUTE_COUNT: Regex = Regex::new(r"(\d+)\s+route").unwrap();
+        static ref RE_TIME: Regex = Regex::new(r"in\s+(\d+(?:\.\d+)?)\s*(s|ms)").unwrap();
+    }
+
     for line in clean.lines() {
         let trimmed = line.trim();
         if trimmed.is_empty() {
@@ -286,18 +291,12 @@ fn filter_nuxt_generate(output: &str) -> String {
 
         // Bulk "Prerendered X routes in Ys" line (check first, takes priority)
         if trimmed.contains("prerendered") || trimmed.contains("Prerendered") {
-            if let Some(caps) = Regex::new(r"(\d+)\s+route")
-                .ok()
-                .and_then(|r| r.captures(trimmed))
-            {
+            if let Some(caps) = RE_ROUTE_COUNT.captures(trimmed) {
                 pages_generated = caps[1].parse().unwrap_or(pages_generated);
                 has_bulk_count = true;
             }
             // Also extract time from "in X.Ys" portion
-            if let Some(caps) = Regex::new(r"in\s+(\d+(?:\.\d+)?)\s*(s|ms)")
-                .ok()
-                .and_then(|r| r.captures(trimmed))
-            {
+            if let Some(caps) = RE_TIME.captures(trimmed) {
                 build_time = format!("{}{}", &caps[1], &caps[2]);
             }
             continue;

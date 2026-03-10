@@ -29,16 +29,14 @@ struct EslintResult {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct PylintDiagnostic {
     #[serde(rename = "type")]
     msg_type: String, // "warning", "error", "convention", "refactor"
-    #[allow(dead_code)]
     module: String,
-    #[allow(dead_code)]
     obj: String,
     #[allow(dead_code)]
     line: usize,
-    #[allow(dead_code)]
     column: usize,
     path: String,
     symbol: String, // rule code like "unused-variable"
