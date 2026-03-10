@@ -7,6 +7,7 @@ use serde::Serialize;
 use std::io::IsTerminal; // added: TTY detection for graceful degradation
 use std::path::PathBuf; // added: for project path resolution
 
+#[allow(clippy::too_many_arguments)]
 pub fn run(
     project: bool, // added: per-project scope flag
     graph: bool,

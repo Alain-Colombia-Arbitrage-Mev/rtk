@@ -40,6 +40,7 @@ mod next_cmd;
 mod node_cmd;
 mod npm_cmd;
 mod nuxt_cmd;
+#[allow(dead_code)]
 mod parser;
 mod pip_cmd;
 mod playwright_cmd;

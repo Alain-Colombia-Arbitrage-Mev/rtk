@@ -68,14 +68,18 @@ fn run_script(args: &[String], verbose: u8, skip_env: bool) -> Result<()> {
     let stderr = String::from_utf8_lossy(&output.stderr);
     let raw = format!("{}\n{}", stdout, stderr);
 
-    // Detect dev server scripts
-    let is_dev = args
-        .first()
-        .map(|s| matches!(s.as_str(), "dev" | "start" | "serve"))
-        .unwrap_or(false);
+    // Detect script type for specialized filtering
+    let script_name = args.first().map(|s| s.as_str()).unwrap_or("");
+    let is_dev = matches!(script_name, "dev" | "start" | "serve");
+    let is_test = matches!(
+        script_name,
+        "test" | "test:unit" | "test:e2e" | "test:integration"
+    ) || script_name.starts_with("test:");
 
     let filtered = if is_dev {
         filter_dev_server_output(&raw)
+    } else if is_test {
+        filter_test_output(&raw)
     } else {
         filter_npm_output(&raw)
     };
@@ -492,6 +496,103 @@ fn filter_install_output(output: &str) -> String {
     }
 }
 
+/// Filter test output (npm run test) — show only failures and summary
+/// Auto-detects vitest, jest, mocha patterns
+fn filter_test_output(output: &str) -> String {
+    lazy_static::lazy_static! {
+        static ref RE_VITEST_DETECT: Regex = Regex::new(r"(?i)(vitest|vite\s+v\d)").unwrap();
+        static ref RE_JEST_DETECT: Regex = Regex::new(r"(?i)(jest|test\s+suites?:)").unwrap();
+        static ref RE_FAIL: Regex = Regex::new(r"(?i)(FAIL|FAILED|✗|✕|×|Error:|AssertionError)").unwrap();
+        static ref RE_SUMMARY: Regex = Regex::new(
+            r"(?i)(test suites?:|tests?:|passed|failed|duration|time:|test result)"
+        ).unwrap();
+    }
+
+    let clean = strip_ansi(output);
+
+    // Strip npm boilerplate first
+    let lines: Vec<&str> = clean
+        .lines()
+        .filter(|l| {
+            let t = l.trim();
+            !(t.is_empty()
+                || (t.starts_with('>') && t.contains('@'))
+                || t.starts_with("npm WARN")
+                || t.starts_with("npm notice"))
+        })
+        .collect();
+
+    let full = lines.join("\n");
+
+    // Detect if all tests passed (no failures)
+    let has_failures = RE_FAIL.is_match(&full);
+
+    if !has_failures {
+        // All passed — show only summary lines
+        let summary: Vec<&str> = lines
+            .iter()
+            .filter(|l| RE_SUMMARY.is_match(l))
+            .copied()
+            .collect();
+
+        if summary.is_empty() {
+            return "Tests passed \u{2713}".to_string();
+        }
+        return summary.join("\n");
+    }
+
+    // Has failures — show failures + context + summary
+    let mut result = Vec::new();
+    let mut in_failure_block = false;
+    let mut blank_count = 0;
+
+    for line in &lines {
+        let trimmed = line.trim();
+
+        // Always include failure lines
+        if RE_FAIL.is_match(trimmed) {
+            in_failure_block = true;
+            blank_count = 0;
+            result.push(line.to_string());
+            continue;
+        }
+
+        // Always include summary lines
+        if RE_SUMMARY.is_match(trimmed) {
+            result.push(line.to_string());
+            continue;
+        }
+
+        // Include context around failures
+        if in_failure_block {
+            if trimmed.is_empty() {
+                blank_count += 1;
+                if blank_count >= 2 {
+                    in_failure_block = false;
+                }
+            } else if trimmed.starts_with(' ')
+                || trimmed.starts_with('\t')
+                || trimmed.starts_with("at ")
+                || trimmed.starts_with("Expected")
+                || trimmed.starts_with("Received")
+                || trimmed.contains("expected")
+                || trimmed.contains("received")
+            {
+                blank_count = 0;
+                result.push(line.to_string());
+            } else {
+                in_failure_block = false;
+            }
+        }
+    }
+
+    if result.is_empty() {
+        full
+    } else {
+        result.join("\n")
+    }
+}
+
 /// Validates npm package name according to official rules
 fn is_valid_package_name(name: &str) -> bool {
     if name.is_empty() || name.len() > 214 {
@@ -743,5 +844,84 @@ found 0 vulnerabilities
     fn test_passthrough_signature() {
         // Compile-time verification that run_passthrough exists with correct signature
         let _args: Vec<OsString> = vec![OsString::from("help")];
+    }
+
+    #[test]
+    fn test_filter_test_output_all_pass() {
+        let output = r#"
+> myapp@1.0.0 test
+> vitest run
+
+ ✓ src/utils.test.ts (3 tests) 12ms
+ ✓ src/api.test.ts (5 tests) 45ms
+ ✓ src/hooks.test.ts (2 tests) 8ms
+
+ Test Files  3 passed (3)
+      Tests  10 passed (10)
+   Duration  1.23s
+"#;
+        let result = filter_test_output(output);
+        // Should only show summary, not individual test files
+        assert!(result.contains("passed"));
+        assert!(!result.contains("utils.test.ts"));
+    }
+
+    #[test]
+    fn test_filter_test_output_with_failures() {
+        let output = r#"
+> myapp@1.0.0 test
+> vitest run
+
+ ✓ src/utils.test.ts (3 tests) 12ms
+ FAIL src/api.test.ts > fetchData
+   AssertionError: expected 200 to be 404
+     Expected: 404
+     Received: 200
+ ✓ src/hooks.test.ts (2 tests) 8ms
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  1 failed | 9 passed (10)
+   Duration  1.23s
+"#;
+        let result = filter_test_output(output);
+        assert!(result.contains("FAIL"));
+        assert!(result.contains("AssertionError"));
+        assert!(result.contains("failed"));
+        assert!(!result.contains("> myapp@"));
+    }
+
+    #[test]
+    fn test_filter_test_output_savings() {
+        let raw = r#"
+> myapp@1.0.0 test
+> vitest run
+
+npm WARN deprecated some-package@1.0.0
+npm notice something
+
+ ✓ src/utils.test.ts (3 tests) 12ms
+ ✓ src/api.test.ts (5 tests) 45ms
+ ✓ src/hooks.test.ts (2 tests) 8ms
+ ✓ src/auth.test.ts (4 tests) 22ms
+ ✓ src/db.test.ts (6 tests) 33ms
+ ✓ src/cache.test.ts (3 tests) 15ms
+ ✓ src/logger.test.ts (2 tests) 7ms
+ ✓ src/middleware.test.ts (5 tests) 28ms
+ ✓ src/router.test.ts (4 tests) 19ms
+ ✓ src/validator.test.ts (3 tests) 11ms
+
+ Test Files  10 passed (10)
+      Tests  38 passed (38)
+   Duration  2.45s (transform 0.5s, setup 0.1s, collect 1.2s, tests 0.65s)
+"#;
+        let filtered = filter_test_output(raw);
+        let input_tokens = count_tokens(raw);
+        let output_tokens = count_tokens(&filtered);
+        let savings = 100.0 - (output_tokens as f64 / input_tokens as f64 * 100.0);
+        assert!(
+            savings >= 70.0,
+            "Test filter: expected >=70% savings, got {:.1}%",
+            savings
+        );
     }
 }

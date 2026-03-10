@@ -353,9 +353,9 @@ fn run_log(
     });
 
     // Check if user provided limit flag
-    let has_limit_flag = args.iter().any(|arg| {
-        arg.starts_with('-') && arg.chars().nth(1).map_or(false, |c| c.is_ascii_digit())
-    });
+    let has_limit_flag = args
+        .iter()
+        .any(|arg| arg.starts_with('-') && arg.chars().nth(1).is_some_and(|c| c.is_ascii_digit()));
 
     // Apply RTK defaults only if user didn't specify them
     if !has_format_flag {
@@ -369,7 +369,7 @@ fn run_log(
         // Extract limit from args if provided
         args.iter()
             .find(|arg| {
-                arg.starts_with('-') && arg.chars().nth(1).map_or(false, |c| c.is_ascii_digit())
+                arg.starts_with('-') && arg.chars().nth(1).is_some_and(|c| c.is_ascii_digit())
             })
             .and_then(|arg| arg[1..].parse::<usize>().ok())
             .unwrap_or(10)
@@ -738,7 +738,7 @@ fn run_commit(messages: &[String], verbose: u8, global_args: &[String]) -> Resul
         // Extract commit hash from output like "[main abc1234] message"
         let compact = if let Some(line) = stdout.lines().next() {
             if let Some(hash_start) = line.find(' ') {
-                let hash = line[1..hash_start].split(' ').last().unwrap_or("");
+                let hash = line[1..hash_start].split(' ').next_back().unwrap_or("");
                 if !hash.is_empty() && hash.len() >= 7 {
                     format!("ok ✓ {}", &hash[..7.min(hash.len())])
                 } else {
@@ -754,23 +754,21 @@ fn run_commit(messages: &[String], verbose: u8, global_args: &[String]) -> Resul
         println!("{}", compact);
 
         timer.track(&original_cmd, "rtk git commit", &raw_output, &compact);
+    } else if stderr.contains("nothing to commit") || stdout.contains("nothing to commit") {
+        println!("ok (nothing to commit)");
+        timer.track(
+            &original_cmd,
+            "rtk git commit",
+            &raw_output,
+            "ok (nothing to commit)",
+        );
     } else {
-        if stderr.contains("nothing to commit") || stdout.contains("nothing to commit") {
-            println!("ok (nothing to commit)");
-            timer.track(
-                &original_cmd,
-                "rtk git commit",
-                &raw_output,
-                "ok (nothing to commit)",
-            );
-        } else {
-            eprintln!("FAILED: git commit");
-            if !stderr.trim().is_empty() {
-                eprintln!("{}", stderr);
-            }
-            if !stdout.trim().is_empty() {
-                eprintln!("{}", stdout);
-            }
+        eprintln!("FAILED: git commit");
+        if !stderr.trim().is_empty() {
+            eprintln!("{}", stderr);
+        }
+        if !stdout.trim().is_empty() {
+            eprintln!("{}", stdout);
         }
     }
 

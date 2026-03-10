@@ -2,6 +2,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 #[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
 pub enum ErrorType {
     UnknownFlag,
     CommandNotFound,
@@ -229,9 +230,11 @@ pub fn find_corrections(commands: &[CommandExecution]) -> Vec<CorrectionPair> {
         }
 
         // Look ahead for correction within CORRECTION_WINDOW
-        for j in (i + 1)..std::cmp::min(i + 1 + CORRECTION_WINDOW, commands.len()) {
-            let candidate = &commands[j];
-
+        for candidate in commands
+            .iter()
+            .take(std::cmp::min(i + 1 + CORRECTION_WINDOW, commands.len()))
+            .skip(i + 1)
+        {
             let similarity = command_similarity(&cmd.command, &candidate.command);
 
             // Must meet minimum similarity

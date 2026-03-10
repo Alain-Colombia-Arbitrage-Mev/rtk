@@ -219,7 +219,7 @@ fn filter_pip_install(output: &str) -> String {
         // Track wheel building
         if trimmed.contains("Building wheel for") {
             if let Some(pkg) = trimmed.split("Building wheel for").nth(1) {
-                let name = pkg.trim().split_whitespace().next().unwrap_or("");
+                let name = pkg.split_whitespace().next().unwrap_or("");
                 current_wheel = Some(name.to_string());
                 building_wheel = true;
             }
@@ -350,11 +350,7 @@ fn filter_pip_outdated(output: &str) -> String {
     result.push_str("═══════════════════════════════════════\n");
 
     for (i, pkg) in packages.iter().take(20).enumerate() {
-        let latest = pkg
-            .latest_version
-            .as_ref()
-            .map(|v| v.as_str())
-            .unwrap_or("unknown");
+        let latest = pkg.latest_version.as_deref().unwrap_or("unknown");
         result.push_str(&format!(
             "{}. {} ({} → {})\n",
             i + 1,

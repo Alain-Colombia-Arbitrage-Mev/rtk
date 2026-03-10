@@ -7,9 +7,11 @@ use tempfile::NamedTempFile;
 use crate::integrity;
 
 // Embedded hook script (guards before set -euo pipefail)
+#[allow(dead_code)]
 const REWRITE_HOOK: &str = include_str!("../hooks/rtk-rewrite.sh");
 
 // Embedded slim RTK awareness instructions
+#[allow(dead_code)]
 const RTK_SLIM: &str = include_str!("../hooks/rtk-awareness.md");
 
 /// Control flow for settings.json patching
@@ -22,6 +24,7 @@ pub enum PatchMode {
 
 /// Result of settings.json patching operation
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[allow(dead_code)]
 pub enum PatchResult {
     Patched,        // Hook was added successfully
     AlreadyPresent, // Hook was already in settings.json
@@ -280,8 +283,8 @@ pub fn run_editor_mode(config: &EditorConfig, global: bool, verbose: u8) -> Resu
         None => base.join(config.filename),
     };
 
-    let display_name = if config.subdir.is_some() {
-        format!("{}/{}", config.subdir.unwrap(), config.filename)
+    let display_name = if let Some(ref subdir) = config.subdir {
+        format!("{}/{}", subdir, config.filename)
     } else {
         config.filename.to_string()
     };
@@ -332,6 +335,7 @@ pub fn run(
 }
 
 /// Prepare hook directory and return paths (hook_dir, hook_path)
+#[allow(dead_code)]
 fn prepare_hook_paths() -> Result<(PathBuf, PathBuf)> {
     let claude_dir = resolve_claude_dir()?;
     let hook_dir = claude_dir.join("hooks");
@@ -446,6 +450,7 @@ fn atomic_write(path: &Path, content: &str) -> Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 /// Prompt user for consent to patch settings.json
 /// Prints to stderr (stdout may be piped), reads from stdin
 /// Default is No (capital N)
@@ -471,6 +476,7 @@ fn prompt_user_consent(settings_path: &Path) -> Result<bool> {
     Ok(response == "y" || response == "yes")
 }
 
+#[allow(dead_code)]
 /// Print manual instructions for settings.json patching
 fn print_manual_instructions(hook_path: &Path) {
     println!("\n  MANUAL STEP: Add this to ~/.claude/settings.json:");
@@ -609,7 +615,7 @@ pub fn uninstall(global: bool, verbose: u8) -> Result<()> {
             fs::write(&claude_md_path, cleaned).with_context(|| {
                 format!("Failed to write CLAUDE.md: {}", claude_md_path.display())
             })?;
-            removed.push(format!("CLAUDE.md: removed @RTK.md reference"));
+            removed.push("CLAUDE.md: removed @RTK.md reference".to_string());
         }
     }
 
@@ -632,6 +638,7 @@ pub fn uninstall(global: bool, verbose: u8) -> Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 /// Orchestrator: patch settings.json with RTK hook
 /// Handles reading, checking, prompting, merging, backing up, and atomic writing
 fn patch_settings_json(hook_path: &Path, mode: PatchMode, verbose: u8) -> Result<PatchResult> {
@@ -657,7 +664,7 @@ fn patch_settings_json(hook_path: &Path, mode: PatchMode, verbose: u8) -> Result
     };
 
     // Check idempotency
-    if hook_already_present(&root, &hook_command) {
+    if hook_already_present(&root, hook_command) {
         if verbose > 0 {
             eprintln!("settings.json: hook already present");
         }
@@ -682,7 +689,7 @@ fn patch_settings_json(hook_path: &Path, mode: PatchMode, verbose: u8) -> Result
     }
 
     // Deep-merge hook
-    insert_hook_entry(&mut root, &hook_command);
+    insert_hook_entry(&mut root, hook_command);
 
     // Backup original
     if settings_path.exists() {
@@ -724,7 +731,7 @@ fn clean_double_blanks(content: &str) -> String {
         if line.trim().is_empty() {
             // Count consecutive blank lines
             let mut blank_count = 0;
-            let start = i;
+            let _start = i;
             while i < lines.len() && lines[i].trim().is_empty() {
                 blank_count += 1;
                 i += 1;
@@ -732,9 +739,7 @@ fn clean_double_blanks(content: &str) -> String {
 
             // Keep at most 2 blank lines
             let keep = blank_count.min(2);
-            for _ in 0..keep {
-                result.push("");
-            }
+            result.extend(std::iter::repeat_n("", keep));
         } else {
             result.push(line);
             i += 1;
@@ -744,6 +749,7 @@ fn clean_double_blanks(content: &str) -> String {
     result.join("\n")
 }
 
+#[allow(dead_code)]
 /// Deep-merge RTK hook entry into settings.json
 /// Creates hooks.PreToolUse structure if missing, preserves existing hooks
 fn insert_hook_entry(root: &mut serde_json::Value, hook_command: &str) {
@@ -1052,6 +1058,7 @@ fn upsert_rtk_block(content: &str, block: &str) -> (String, RtkBlockUpsert) {
     }
 }
 
+#[allow(dead_code)]
 /// Patch CLAUDE.md: add @RTK.md, migrate if old block exists
 fn patch_claude_md(path: &Path, verbose: u8) -> Result<bool> {
     let mut content = if path.exists() {
@@ -1101,6 +1108,7 @@ fn patch_claude_md(path: &Path, verbose: u8) -> Result<bool> {
     Ok(migrated)
 }
 
+#[allow(dead_code)]
 /// Remove old RTK block from CLAUDE.md (migration helper)
 fn remove_rtk_block(content: &str) -> (String, bool) {
     if let (Some(start), Some(end)) = (
@@ -1615,8 +1623,8 @@ More notes
         let serialized = serde_json::to_string(&parsed).unwrap();
 
         // Keys should appear in same order
-        let original_keys: Vec<&str> = original.split("\"").filter(|s| s.contains(":")).collect();
-        let serialized_keys: Vec<&str> =
+        let _original_keys: Vec<&str> = original.split("\"").filter(|s| s.contains(":")).collect();
+        let _serialized_keys: Vec<&str> =
             serialized.split("\"").filter(|s| s.contains(":")).collect();
 
         // Just check that keys exist (preserve_order doesn't guarantee exact order in nested objects)

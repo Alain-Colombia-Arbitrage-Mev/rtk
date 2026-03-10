@@ -3,7 +3,6 @@ use crate::ruff_cmd;
 use crate::tracking;
 use crate::utils::{package_manager_exec, truncate};
 use anyhow::{Context, Result};
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::process::Command;
@@ -30,15 +29,13 @@ struct EslintResult {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct PylintDiagnostic {
     #[serde(rename = "type")]
     msg_type: String, // "warning", "error", "convention", "refactor"
-    #[allow(dead_code)]
     module: String,
-    #[allow(dead_code)]
     obj: String,
     line: usize,
-    #[allow(dead_code)]
     column: usize,
     path: String,
     symbol: String, // rule code like "unused-variable"
