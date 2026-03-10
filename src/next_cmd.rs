@@ -55,7 +55,7 @@ pub fn run(args: &[String], verbose: u8) -> Result<()> {
 }
 
 /// Filter Next.js build output - extract routes, bundles, warnings
-fn filter_next_build(output: &str) -> String {
+pub fn filter_next_build(output: &str) -> String {
     lazy_static::lazy_static! {
         // Route line pattern: ○ /dashboard    1.2 kB  132 kB
         static ref ROUTE_PATTERN: Regex = Regex::new(

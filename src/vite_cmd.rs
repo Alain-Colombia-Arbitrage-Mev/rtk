@@ -121,7 +121,7 @@ fn run_passthrough(args: &[String], verbose: u8) -> Result<()> {
     Ok(())
 }
 
-fn filter_vite_build(output: &str) -> String {
+pub fn filter_vite_build(output: &str) -> String {
     let mut bundles: Vec<(String, f64, Option<f64>)> = Vec::new(); // (name, size_kb, gzip_kb)
     let mut build_time: Option<String> = None;
     let mut errors: Vec<String> = Vec::new();

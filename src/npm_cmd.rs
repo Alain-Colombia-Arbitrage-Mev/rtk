@@ -1,4 +1,5 @@
 use crate::tracking;
+use crate::utils::strip_ansi;
 use anyhow::{Context, Result};
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -13,6 +14,17 @@ lazy_static! {
     static ref RE_HMR: Regex = Regex::new(r"(?i)\[hmr\]|hmr update|hot update").unwrap();
     /// ANSI spinner characters
     static ref RE_SPINNER: Regex = Regex::new(r"[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]").unwrap();
+    /// Build noise: transforming, compiling, bundling, rendering progress
+    static ref RE_BUILD_NOISE: Regex = Regex::new(
+        r"(?i)^\s*(transforming|compiling|bundling|rendering|optimizing|collecting|generating|resolving)\b.*\.\.\."
+    ).unwrap();
+    /// Webpack module lines like: ./src/app/page.tsx 1.2 kB
+    static ref RE_WEBPACK_MODULE: Regex = Regex::new(
+        r"^\s*(\.\/|webpack)\s"
+    ).unwrap();
+    /// Next.js/Vite detection patterns
+    static ref RE_NEXT_DETECT: Regex = Regex::new(r"(?i)(next\.js|▲\s+Next)").unwrap();
+    static ref RE_VITE_DETECT: Regex = Regex::new(r"(?i)(vite\s+v\d|built\s+in\s+\d.*│\s*gzip)").unwrap();
 }
 
 #[derive(Debug, Clone)]
@@ -270,19 +282,34 @@ fn filter_outdated_text(output: &str) -> String {
 }
 
 /// Filter npm run output - strip boilerplate, progress bars, npm WARN
+/// Auto-detects Next.js, Vite, and webpack build output for deeper filtering
 pub fn filter_npm_output(output: &str) -> String {
+    let clean = strip_ansi(output);
+
+    // Auto-detect specialized build output and delegate to better filters
+    if RE_NEXT_DETECT.is_match(&clean) {
+        return crate::next_cmd::filter_next_build(&clean);
+    }
+    if RE_VITE_DETECT.is_match(&clean) {
+        return crate::vite_cmd::filter_vite_build(&clean);
+    }
+
+    // Generic build filter - strips npm boilerplate + common build noise
     let mut result = Vec::new();
 
-    for line in output.lines() {
+    for line in clean.lines() {
+        let trimmed = line.trim();
+
+        // Skip empty lines
+        if trimmed.is_empty() {
+            continue;
+        }
         // Skip npm boilerplate
         if line.starts_with('>') && line.contains('@') {
             continue;
         }
         // Skip npm lifecycle scripts
-        if line.trim_start().starts_with("npm WARN") {
-            continue;
-        }
-        if line.trim_start().starts_with("npm notice") {
+        if trimmed.starts_with("npm WARN") || trimmed.starts_with("npm notice") {
             continue;
         }
         // Skip progress indicators
@@ -292,8 +319,32 @@ pub fn filter_npm_output(output: &str) -> String {
         {
             continue;
         }
-        // Skip empty lines
-        if line.trim().is_empty() {
+        // Skip build noise (transforming, compiling, bundling, etc.)
+        if RE_BUILD_NOISE.is_match(trimmed) {
+            continue;
+        }
+        // Skip progress bars
+        if RE_PROGRESS.is_match(trimmed) {
+            continue;
+        }
+        // Skip spinner characters
+        if RE_SPINNER.is_match(trimmed) && trimmed.len() < 40 {
+            continue;
+        }
+        // Skip verbose webpack module resolution
+        if RE_WEBPACK_MODULE.is_match(trimmed) {
+            continue;
+        }
+        // Skip "Creating an optimized production build" type lines
+        if trimmed.contains("Creating an optimized")
+            || trimmed.contains("Linting and checking")
+            || trimmed.contains("Collecting page data")
+            || trimmed.contains("Generating static pages")
+        {
+            continue;
+        }
+        // Skip TypeScript compilation noise
+        if trimmed.starts_with("info") && trimmed.contains("TypeScript") {
             continue;
         }
 
@@ -308,12 +359,13 @@ pub fn filter_npm_output(output: &str) -> String {
 }
 
 /// Filter dev server output (npm run dev / npm run start)
-/// Strips HMR noise, progress bars, repeated compilation messages
+/// Strips HMR noise, progress bars, repeated compilation messages, build noise
 fn filter_dev_server_output(output: &str) -> String {
+    let clean = strip_ansi(output);
     let mut result = Vec::new();
     let mut seen_compiled = false;
 
-    for line in output.lines() {
+    for line in clean.lines() {
         let trimmed = line.trim();
 
         // Skip empty lines
@@ -341,6 +393,16 @@ fn filter_dev_server_output(output: &str) -> String {
 
         // Skip ANSI spinners
         if RE_SPINNER.is_match(trimmed) {
+            continue;
+        }
+
+        // Skip build noise (transforming, compiling, bundling, etc.)
+        if RE_BUILD_NOISE.is_match(trimmed) {
+            continue;
+        }
+
+        // Skip webpack module resolution
+        if RE_WEBPACK_MODULE.is_match(trimmed) {
             continue;
         }
 
