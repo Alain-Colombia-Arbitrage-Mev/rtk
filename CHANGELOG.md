@@ -5,6 +5,205 @@ All notable changes to rtk (Rust Token Killer) will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.31.0](https://github.com/rtk-ai/rtk/compare/v0.30.1...v0.31.0) (2026-03-19)
+
+
+### Features
+
+* 9-tool AI agent support + emoji removal ([#704](https://github.com/rtk-ai/rtk/issues/704)) ([737dada](https://github.com/rtk-ai/rtk/commit/737dada4a56c0d7a482cc438e7280340d634f75d))
+
+## [0.30.1](https://github.com/rtk-ai/rtk/compare/v0.30.0...v0.30.1) (2026-03-18)
+
+
+### Bug Fixes
+
+* remove all decorative emojis from CLI output ([#687](https://github.com/rtk-ai/rtk/issues/687)) ([#686](https://github.com/rtk-ai/rtk/issues/686)) ([4792008](https://github.com/rtk-ai/rtk/commit/4792008fc15553cbb9aeaa602f773a5f8f7f7afe))
+
+## [0.30.0](https://github.com/rtk-ai/rtk/compare/v0.29.0...v0.30.0) (2026-03-16)
+
+
+### Features
+
+* add rtk session command for adoption overview ([be67d66](https://github.com/rtk-ai/rtk/commit/be67d660100c06a0751c08d943dc884ad5bff6a3))
+* add rtk session command for adoption overview ([12d44c4](https://github.com/rtk-ai/rtk/commit/12d44c4068d7d4f65d5bd7551af29ab5a2352ed1)), closes [#487](https://github.com/rtk-ai/rtk/issues/487)
+* add worktree slash commands for isolated development ([#364](https://github.com/rtk-ai/rtk/issues/364)) ([ab83e79](https://github.com/rtk-ai/rtk/commit/ab83e7933ebc26ca76f843d33285729875efb913))
+* Claude Code tooling — 2 agents, 7 commands, 2 rules, 4 skills ([#491](https://github.com/rtk-ai/rtk/issues/491)) ([7b7a5ae](https://github.com/rtk-ai/rtk/commit/7b7a5ae4b6d23fbb882ed7d5e815e2ed0672c46c))
+
+
+### Bug Fixes
+
+* 6 critical bugs — exit codes, unwrap, lazy regex ([#626](https://github.com/rtk-ai/rtk/issues/626)) ([3005ebd](https://github.com/rtk-ai/rtk/commit/3005ebd0ad07912ae919687f6d3d49482aabaeac))
+* align 7 TOML filter tests with on_empty behavior ([04ed6d8](https://github.com/rtk-ai/rtk/commit/04ed6d8c314dcbf86b147903b5a7f1cd956dc980))
+* align 7 TOML filter tests with on_empty behavior ([9a499b9](https://github.com/rtk-ai/rtk/commit/9a499b9714e97a553d5603680ab1f843034acf28))
+* **cicd-docs:** add agent reviewer + some contribute guidelines ([de710f4](https://github.com/rtk-ai/rtk/commit/de710f4ea30c333130c46f8a2e2c5b6b9edd4889))
+* **cicd-docs:** some logs to understand what is happening when check docs ([191ea9a](https://github.com/rtk-ai/rtk/commit/191ea9af9f99ee78d74385fe1952ce83045e4afe))
+* **cicd:** Clean cicd, rework depends and add pre-release ([d24a765](https://github.com/rtk-ai/rtk/commit/d24a7650e26aca89224a3ec5d263f1ce7c7121d6))
+* **cicd:** Clean cicd, rework depends and add pre-release ([6303e95](https://github.com/rtk-ai/rtk/commit/6303e9530a379a8e3939e6c122ab4cf07cb16751))
+* **cicd:** clippy - do not treat warn as error ([5da5db2](https://github.com/rtk-ai/rtk/commit/5da5db222d9927394995ccaeb3afc103e80c22bd))
+* failing context for doc analyze -&gt; cat from files ([c6b7db2](https://github.com/rtk-ai/rtk/commit/c6b7db2e5a6cd9a05262e934b4fc7a44c699c3b0))
+* git log --oneline regression drops commits ([#619](https://github.com/rtk-ai/rtk/issues/619)) ([8e85d67](https://github.com/rtk-ai/rtk/commit/8e85d676d78b12d2c421bb892f93971fc222fb39))
+* improve adoption metric by detecting hook-rewritten commands ([eb8a2c4](https://github.com/rtk-ai/rtk/commit/eb8a2c4a71072870fca4b64e90189a4453acff84))
+* normalize binlogs CRLF ([5344af9](https://github.com/rtk-ai/rtk/commit/5344af9a51f06b5dc42692e42c948ff11a3173c6))
+* preserve commit body in git log output ([e189bbb](https://github.com/rtk-ai/rtk/commit/e189bbbe749120eda4d98a2130937269d8c0e92a))
+* preserve first line of commit body in git log output ([c3416eb](https://github.com/rtk-ai/rtk/commit/c3416eb45f2f97297ec149d296a6a500697d302b))
+* remove version check from validate-docs CI ([#476](https://github.com/rtk-ai/rtk/issues/476)) ([#543](https://github.com/rtk-ai/rtk/issues/543)) ([6e61c24](https://github.com/rtk-ai/rtk/commit/6e61c2447cc03af94220ce6ce83686f155e18086))
+* split chained commands in adoption metric ([127f85c](https://github.com/rtk-ai/rtk/commit/127f85c02efd52a64e461005fa142d05f81615f8))
+* support git -C &lt;path&gt; in rewrite registry ([c916bab](https://github.com/rtk-ai/rtk/commit/c916bab33ae9760b234fd720c944a849141f0d2e)), closes [#555](https://github.com/rtk-ai/rtk/issues/555)
+* test-all.sh aborts when gt not installed ([#500](https://github.com/rtk-ai/rtk/issues/500)) ([#544](https://github.com/rtk-ai/rtk/issues/544)) ([26f5473](https://github.com/rtk-ai/rtk/commit/26f547371798ad32aed3569965303bc4857789ed))
+* trust boundary followup — TOML key typo + missing meta commands ([#625](https://github.com/rtk-ai/rtk/issues/625)) ([8d8e188](https://github.com/rtk-ai/rtk/commit/8d8e188705e5784829693a83b2076d6118154764))
+* windows path fix for git tests ([0a904e2](https://github.com/rtk-ai/rtk/commit/0a904e264d58f8f4b5f10e37ec3b11f717458fe0))
+
+## [0.29.0](https://github.com/rtk-ai/rtk/compare/v0.28.2...v0.29.0) (2026-03-12)
+
+
+### Features
+
+* rewrite engine, OpenCode support, hook system improvements ([#539](https://github.com/rtk-ai/rtk/issues/539)) ([c1de10d](https://github.com/rtk-ai/rtk/commit/c1de10d94c0a35f825b71713e2db4624310c03d1))
+
+## [0.28.2](https://github.com/rtk-ai/rtk/compare/v0.28.1...v0.28.2) (2026-03-10)
+
+
+### Bug Fixes
+
+* add tokens_saved to telemetry payload ([#471](https://github.com/rtk-ai/rtk/issues/471)) ([#472](https://github.com/rtk-ai/rtk/issues/472)) ([f8b7d52](https://github.com/rtk-ai/rtk/commit/f8b7d52d2d25d09a44f391576bad6a7b271f1f8c))
+
+## [0.28.1](https://github.com/rtk-ai/rtk/compare/v0.28.0...v0.28.1) (2026-03-10)
+
+
+### Bug Fixes
+
+* 4 critical bugs + telemetry enrichment ([#462](https://github.com/rtk-ai/rtk/issues/462)) ([7d76af8](https://github.com/rtk-ai/rtk/commit/7d76af84b95e0f040e8b91a154edb89f80e5c380))
+* restore lost telemetry install_method enrichment ([#469](https://github.com/rtk-ai/rtk/issues/469)) ([0c5cde9](https://github.com/rtk-ai/rtk/commit/0c5cde9ec234a2b7b0376adbcb78f2be48a98e86))
+
+## [0.28.0](https://github.com/rtk-ai/rtk/compare/v0.27.2...v0.28.0) (2026-03-10)
+
+
+### Features
+
+* **gt:** add Graphite CLI support ([#290](https://github.com/rtk-ai/rtk/issues/290)) ([7fbc4ef](https://github.com/rtk-ai/rtk/commit/7fbc4ef4b553d5e61feeb6e73d8f6a96b6df3dd9))
+* TOML Part 1 — filter DSL engine + 14 built-in filters ([#349](https://github.com/rtk-ai/rtk/issues/349)) ([adda253](https://github.com/rtk-ai/rtk/commit/adda2537be1fe69625ac280f15e8c8067d08c711))
+* TOML Part 2 — user-global config, shadow warning, rtk init templates, 4 new built-in filters ([#351](https://github.com/rtk-ai/rtk/issues/351)) ([926e6a0](https://github.com/rtk-ai/rtk/commit/926e6a0dd4512c4cbb0f5ac133e60cb6134a3174))
+* TOML Part 3 — 15 additional built-in filters (ping, rsync, dotnet, swift, shellcheck, hadolint, poetry, composer, brew, df, ps, systemctl, yamllint, markdownlint, uv) ([#386](https://github.com/rtk-ai/rtk/issues/386)) ([b71a8d2](https://github.com/rtk-ai/rtk/commit/b71a8d24e2dbd3ff9bb423c849638bfa23830c0b))
+
+## [0.27.2](https://github.com/rtk-ai/rtk/compare/v0.27.1...v0.27.2) (2026-03-06)
+
+
+### Bug Fixes
+
+* gh pr edit/comment pass correct subcommand to gh ([#332](https://github.com/rtk-ai/rtk/issues/332)) ([799f085](https://github.com/rtk-ai/rtk/commit/799f0856e4547318230fe150a43f50ab82e1cf03))
+* pass through -R/--repo flag in gh view commands ([#328](https://github.com/rtk-ai/rtk/issues/328)) ([0a1bcb0](https://github.com/rtk-ai/rtk/commit/0a1bcb05e5737311211369dcb92b3f756a6230c6)), closes [#223](https://github.com/rtk-ai/rtk/issues/223)
+* reduce gh diff / git diff / gh api truncation ([#354](https://github.com/rtk-ai/rtk/issues/354)) ([#370](https://github.com/rtk-ai/rtk/issues/370)) ([e356c12](https://github.com/rtk-ai/rtk/commit/e356c1280da9896195d0dff91e152c5f20347a65))
+* strip npx/bunx/pnpm prefixes in lint linter detection ([#186](https://github.com/rtk-ai/rtk/issues/186)) ([#366](https://github.com/rtk-ai/rtk/issues/366)) ([27b35d8](https://github.com/rtk-ai/rtk/commit/27b35d84a341622aa4bf686c2ce8867f8feeb742))
+
+## [0.27.1](https://github.com/rtk-ai/rtk/compare/v0.27.0...v0.27.1) (2026-03-06)
+
+
+### Bug Fixes
+
+* only rewrite docker compose ps/logs/build, skip unsupported subcommands ([#336](https://github.com/rtk-ai/rtk/issues/336)) ([#363](https://github.com/rtk-ai/rtk/issues/363)) ([dbc9503](https://github.com/rtk-ai/rtk/commit/dbc950395e31b4b0bc48710dc52ad01d4d73f9ba))
+* preserve -- separator for cargo commands and silence fallback ([#326](https://github.com/rtk-ai/rtk/issues/326)) ([45f9344](https://github.com/rtk-ai/rtk/commit/45f9344f033d27bc370ff54c4fc0c61e52446076)), closes [#286](https://github.com/rtk-ai/rtk/issues/286) [#287](https://github.com/rtk-ai/rtk/issues/287)
+* prettier false positive when not installed ([#221](https://github.com/rtk-ai/rtk/issues/221)) ([#359](https://github.com/rtk-ai/rtk/issues/359)) ([85b0b3e](https://github.com/rtk-ai/rtk/commit/85b0b3eb0bad9cbacdc32d2e9ba525728acd7cbe))
+* support git commit -am, --amend and other flags ([#327](https://github.com/rtk-ai/rtk/issues/327)) ([#360](https://github.com/rtk-ai/rtk/issues/360)) ([409aed6](https://github.com/rtk-ai/rtk/commit/409aed6dbcdd7cac2a48ec5655e6f1fd8d5248e3))
+
+## [0.27.0](https://github.com/rtk-ai/rtk/compare/v0.26.0...v0.27.0) (2026-03-05)
+
+
+### Features
+
+* warn when installed hook is outdated ([#344](https://github.com/rtk-ai/rtk/issues/344)) ([#350](https://github.com/rtk-ai/rtk/issues/350)) ([3141fec](https://github.com/rtk-ai/rtk/commit/3141fecf958af5ae98c232543b913f3ca388254f))
+
+
+### Bug Fixes
+
+* bugs [#196](https://github.com/rtk-ai/rtk/issues/196) [#344](https://github.com/rtk-ai/rtk/issues/344) [#345](https://github.com/rtk-ai/rtk/issues/345) [#346](https://github.com/rtk-ai/rtk/issues/346) [#347](https://github.com/rtk-ai/rtk/issues/347) — gh --json, hook check, RTK_DISABLED, 2&gt;&1, json TOML ([8953af0](https://github.com/rtk-ai/rtk/commit/8953af0fc06759b37f16743ef383af0a52af2bed))
+* RTK_DISABLED ignored, 2&gt;&1 broken, json TOML error ([#345](https://github.com/rtk-ai/rtk/issues/345), [#346](https://github.com/rtk-ai/rtk/issues/346), [#347](https://github.com/rtk-ai/rtk/issues/347)) ([6c13d23](https://github.com/rtk-ai/rtk/commit/6c13d234364d314f53b6698c282a621019635fd6))
+* skip rewrite for gh --json/--jq/--template ([#196](https://github.com/rtk-ai/rtk/issues/196)) ([079ee9a](https://github.com/rtk-ai/rtk/commit/079ee9a4ea868ecf4e7beffcbc681ca1ba8b165c))
+
+## [0.26.0](https://github.com/rtk-ai/rtk/compare/v0.25.0...v0.26.0) (2026-03-05)
+
+
+### Features
+
+* add Claude Code skills for PR and issue triage ([#343](https://github.com/rtk-ai/rtk/issues/343)) ([6ad6ffe](https://github.com/rtk-ai/rtk/commit/6ad6ffeccee9b622013f8e1357b6ca4c94aacb59))
+* anonymous telemetry ping (1/day, opt-out) ([#334](https://github.com/rtk-ai/rtk/issues/334)) ([baff6a2](https://github.com/rtk-ai/rtk/commit/baff6a2334b155c0d68f38dba85bd8d6fe9e20af))
+
+
+### Bug Fixes
+
+* curl JSON size guard ([#297](https://github.com/rtk-ai/rtk/issues/297)) + exclude_commands config ([#243](https://github.com/rtk-ai/rtk/issues/243)) ([#342](https://github.com/rtk-ai/rtk/issues/342)) ([a8d6106](https://github.com/rtk-ai/rtk/commit/a8d6106f736e049013ecb77f0f413167266dd40e))
+
+## [Unreleased]
+
+### Features
+
+* **toml-dsl:** declarative TOML filter engine — add command filters without writing Rust ([#299](https://github.com/rtk-ai/rtk/issues/299))
+  * 8 primitives: `strip_ansi`, `replace`, `match_output`, `strip/keep_lines_matching`, `truncate_lines_at`, `head/tail_lines`, `max_lines`, `on_empty`
+  * lookup chain: `.rtk/filters.toml` (project-local) → `~/.config/rtk/filters.toml` (user-global) → built-in filters
+  * `RTK_NO_TOML=1` bypass, `RTK_TOML_DEBUG=1` debug mode
+  * shadow warning when a TOML filter's match_command overlaps a Rust-handled command
+  * `rtk init` generates commented filter templates at both project and global level
+  * `rtk verify` command with `--require-all` for inline test validation
+  * 18 built-in filters: `tofu-plan/init/validate/fmt` ([#240](https://github.com/rtk-ai/rtk/issues/240)), `du` ([#284](https://github.com/rtk-ai/rtk/issues/284)), `fail2ban-client` ([#281](https://github.com/rtk-ai/rtk/issues/281)), `iptables` ([#282](https://github.com/rtk-ai/rtk/issues/282)), `mix-format/compile` ([#310](https://github.com/rtk-ai/rtk/issues/310)), `shopify-theme` ([#280](https://github.com/rtk-ai/rtk/issues/280)), `pio-run` ([#231](https://github.com/rtk-ai/rtk/issues/231)), `mvn-build` ([#338](https://github.com/rtk-ai/rtk/issues/338)), `pre-commit`, `helm`, `gcloud`, `ansible-playbook`
+* **hooks:** `exclude_commands` config — exclude specific commands from auto-rewrite ([#243](https://github.com/rtk-ai/rtk/issues/243))
+
+### Bug Fixes
+
+* **curl:** skip JSON schema replacement when schema is larger than original payload ([#297](https://github.com/rtk-ai/rtk/issues/297))
+* **toml-dsl:** fix regex overmatch on `tofu-plan/init/validate/fmt` and `mix-format/compile` — add `(\s|$)` word boundary to prevent matching subcommands (e.g. `tofu planet`, `mix formats`) ([#349](https://github.com/rtk-ai/rtk/issues/349))
+* **toml-dsl:** remove 3 dead built-in filters (`docker-inspect`, `docker-compose-ps`, `pnpm-build`) — Clap routes these commands before `run_fallback`, so the TOML filters never fire ([#351](https://github.com/rtk-ai/rtk/issues/351))
+* **toml-dsl:** `uv-sync` — remove `Resolved` short-circuit; it fires before the package list is printed, hiding installed packages ([#386](https://github.com/rtk-ai/rtk/issues/386))
+* **toml-dsl:** `dotnet-build` — short-circuit only when both warning and error counts are zero; builds with warnings now pass through ([#386](https://github.com/rtk-ai/rtk/issues/386))
+* **toml-dsl:** `poetry-install` — support Poetry 2.x bullet syntax (`•`) and `No changes.` up-to-date message ([#386](https://github.com/rtk-ai/rtk/issues/386))
+* **toml-dsl:** `ping` — add Windows format support (`Pinging` header, `Reply from` per-packet lines) ([#386](https://github.com/rtk-ai/rtk/issues/386))
+
+## [0.25.0](https://github.com/rtk-ai/rtk/compare/v0.24.0...v0.25.0) (2026-03-05)
+
+
+### Features
+
+* `rtk rewrite` — single source of truth for LLM hook rewrites ([#241](https://github.com/rtk-ai/rtk/issues/241)) ([f447a3d](https://github.com/rtk-ai/rtk/commit/f447a3d5b136dd5b1df3d5cc4969e29a68ba3f89))
+
+
+### Bug Fixes
+
+* **find:** accept native find flags (-name, -type, etc.) ([#211](https://github.com/rtk-ai/rtk/issues/211)) ([7ac5bc4](https://github.com/rtk-ai/rtk/commit/7ac5bc4bd3942841cc1abb53399025b4fcae10c9))
+
+## [Unreleased]
+
+### ⚠️ Migration Required
+
+**Hook must be updated after upgrading** (`rtk init --global`).
+
+The Claude Code hook is now a thin delegator: all rewrite logic lives in the
+`rtk rewrite` command (single source of truth). The old hook embedded the full
+if-else mapping inline — it still works after upgrading, but won't pick up new
+commands automatically.
+
+**Upgrade path:**
+```bash
+cargo install rtk          # upgrade binary
+rtk init --global          # replace old hook with thin delegator
+```
+
+Running `rtk init` without `--global` updates the project-level hook only.
+Users who skip this step keep the old hook working as before — no immediate
+breakage, but future rule additions won't take effect until they migrate.
+
+### Features
+
+* **rewrite**: add `rtk rewrite` command — single source of truth for hook rewrites ([#241](https://github.com/rtk-ai/rtk/pull/241))
+  - New `src/discover/registry.rs` handles all command → RTK mapping
+  - Hook reduced to ~50 lines (thin delegator), no duplicate logic
+  - New commands automatically available in hook without hook file changes
+  - Supports compound commands (`&&`, `||`, `;`, `|`, `&`) and env prefixes
+* **discover**: extract rules/patterns into `src/discover/rules.rs` — adding a command now means editing one file only
+* **fix**: add `aws` and `psql` to rewrite registry (were missing despite modules existing since 0.24.0)
+
+### Tests
+
+* +48 regression tests covering all command categories: aws, psql, Python, Go, JS/TS,
+  compound operators, sudo/env prefixes, registry invariants (607 total, was 559)
+
 ## [0.24.0](https://github.com/rtk-ai/rtk/compare/v0.23.0...v0.24.0) (2026-03-04)
 
 

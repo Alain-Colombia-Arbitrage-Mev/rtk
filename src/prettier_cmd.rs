@@ -24,6 +24,25 @@ pub fn run(args: &[String], verbose: u8) -> Result<()> {
     let stderr = String::from_utf8_lossy(&output.stderr);
     let raw = format!("{}\n{}", stdout, stderr);
 
+    // #221: If prettier is not installed or produced no meaningful output,
+    // show stderr as-is instead of a misleading "All files formatted" message.
+    let has_output = stdout.lines().any(|l| !l.trim().is_empty());
+    if !has_output && !output.status.success() {
+        let msg = stderr.trim();
+        if msg.is_empty() {
+            eprintln!("Error: prettier not found or produced no output");
+        } else {
+            eprintln!("{}", msg);
+        }
+        timer.track(
+            &format!("prettier {}", args.join(" ")),
+            &format!("rtk prettier {}", args.join(" ")),
+            &raw,
+            &raw,
+        );
+        std::process::exit(output.status.code().unwrap_or(1));
+    }
+
     let filtered = filter_prettier_output(&raw);
 
     println!("{}", filtered);
@@ -45,6 +64,11 @@ pub fn run(args: &[String], verbose: u8) -> Result<()> {
 
 /// Filter Prettier output - show only files that need formatting
 pub fn filter_prettier_output(output: &str) -> String {
+    // #221: empty or whitespace-only output means prettier didn't run
+    if output.trim().is_empty() {
+        return "Error: prettier produced no output".to_string();
+    }
+
     let mut files_to_format: Vec<String> = Vec::new();
     let mut files_checked = 0;
     let mut is_check_mode = true;
@@ -88,7 +112,7 @@ pub fn filter_prettier_output(output: &str) -> String {
 
     // Check if all files are formatted
     if files_to_format.is_empty() && output.contains("All matched files use Prettier") {
-        return "✓ Prettier: All files formatted correctly".to_string();
+        return "Prettier: All files formatted correctly".to_string();
     }
 
     // Check if files were written (write mode)
@@ -101,7 +125,7 @@ pub fn filter_prettier_output(output: &str) -> String {
     if is_check_mode {
         // Check mode: show files that need formatting
         if files_to_format.is_empty() {
-            result.push_str("✓ Prettier: All files formatted correctly\n");
+            result.push_str("Prettier: All files formatted correctly\n");
         } else {
             result.push_str(&format!(
                 "Prettier: {} files need formatting\n",
@@ -122,7 +146,7 @@ pub fn filter_prettier_output(output: &str) -> String {
 
             if files_checked > 0 {
                 result.push_str(&format!(
-                    "\n✓ {} files already formatted\n",
+                    "\n{} files already formatted\n",
                     files_checked - files_to_format.len()
                 ));
             }
@@ -130,7 +154,7 @@ pub fn filter_prettier_output(output: &str) -> String {
     } else {
         // Write mode: show what was formatted
         result.push_str(&format!(
-            "✓ Prettier: {} files formatted\n",
+            "Prettier: {} files formatted\n",
             files_to_format.len()
         ));
     }
@@ -149,7 +173,7 @@ Checking formatting...
 All matched files use Prettier code style!
         "#;
         let result = filter_prettier_output(output);
-        assert!(result.contains("✓ Prettier"));
+        assert!(result.contains("Prettier"));
         assert!(result.contains("All files formatted correctly"));
     }
 
@@ -177,5 +201,21 @@ Code style issues found in the above file(s). Forgot to run Prettier?
         let result = filter_prettier_output(&output);
         assert!(result.contains("15 files need formatting"));
         assert!(result.contains("... +5 more files"));
+    }
+
+    // --- #221: empty output should not say "All files formatted" ---
+
+    #[test]
+    fn test_filter_empty_output() {
+        let result = filter_prettier_output("");
+        assert!(result.contains("Error"));
+        assert!(!result.contains("All files formatted"));
+    }
+
+    #[test]
+    fn test_filter_whitespace_only_output() {
+        let result = filter_prettier_output("   \n\n  ");
+        assert!(result.contains("Error"));
+        assert!(!result.contains("All files formatted"));
     }
 }

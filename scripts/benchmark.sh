@@ -1,8 +1,16 @@
 #!/bin/bash
 set -e
 
-RTK="$(cd "$(dirname ./target/release/rtk)" && pwd)/$(basename ./target/release/rtk)"
-BENCH_DIR="./scripts/benchmark"
+# Use local release build if available, otherwise fall back to installed rtk
+if [ -f "./target/release/rtk" ]; then
+  RTK="$(cd "$(dirname ./target/release/rtk)" && pwd)/$(basename ./target/release/rtk)"
+elif command -v rtk &> /dev/null; then
+  RTK="$(command -v rtk)"
+else
+  echo "Error: rtk not found. Run 'cargo build --release' or install rtk."
+  exit 1
+fi
+BENCH_DIR="$(pwd)/scripts/benchmark"
 
 # Mode local : générer les fichiers debug
 if [ -z "$CI" ]; then
@@ -166,7 +174,7 @@ section "git"
 bench "git status" "git status" "$RTK git status"
 bench "git log -n 10" "git log -10" "$RTK git log -n 10"
 bench "git log -n 5" "git log -5" "$RTK git log -n 5"
-bench "git diff" "git diff HEAD~1 2>/dev/null || echo ''" "$RTK git diff"
+bench "git diff" "git diff HEAD~1 2>/dev/null || echo ''" "$RTK git diff HEAD~1"
 
 # ===================
 # grep
@@ -220,13 +228,21 @@ bench "env --show-all" "env" "$RTK env --show-all"
 # err
 # ===================
 section "err"
-bench "err cargo build" "cargo build 2>&1 || true" "$RTK err cargo build"
+if command -v cargo &>/dev/null; then
+  bench "err cargo build" "cargo build 2>&1 || true" "$RTK err cargo build"
+else
+  echo "⏭️  err cargo build (cargo not in PATH, skipped)"
+fi
 
 # ===================
 # test
 # ===================
 section "test"
-bench "test cargo test" "cargo test 2>&1 || true" "$RTK test cargo test"
+if command -v cargo &>/dev/null; then
+  bench "test cargo test" "cargo test 2>&1 || true" "$RTK test cargo test"
+else
+  echo "⏭️  test cargo test (cargo not in PATH, skipped)"
+fi
 
 # ===================
 # log
@@ -255,8 +271,64 @@ rm -f "$LOG_FILE"
 # summary
 # ===================
 section "summary"
-bench "summary cargo --help" "cargo --help" "$RTK summary cargo --help"
-bench "summary rustc --help" "rustc --help 2>/dev/null || echo 'rustc not found'" "$RTK summary rustc --help"
+if command -v cargo &>/dev/null; then
+  bench "summary cargo --help" "cargo --help" "$RTK summary cargo --help"
+else
+  echo "⏭️  summary cargo --help (cargo not in PATH, skipped)"
+fi
+if command -v rustc &>/dev/null; then
+  bench "summary rustc --help" "rustc --help 2>/dev/null || echo 'rustc not found'" "$RTK summary rustc --help"
+else
+  echo "⏭️  summary rustc --help (rustc not in PATH, skipped)"
+fi
+
+# ===================
+# cargo
+# ===================
+section "cargo"
+if command -v cargo &>/dev/null; then
+  bench "cargo build" "cargo build 2>&1 || true" "$RTK cargo build"
+  bench "cargo test" "cargo test 2>&1 || true" "$RTK cargo test"
+  bench "cargo clippy" "cargo clippy 2>&1 || true" "$RTK cargo clippy"
+  bench "cargo check" "cargo check 2>&1 || true" "$RTK cargo check"
+else
+  echo "⏭️  cargo build/test/clippy/check (cargo not in PATH, skipped)"
+fi
+
+# ===================
+# diff
+# ===================
+section "diff"
+bench "diff" "diff Cargo.toml LICENSE 2>&1 || true" "$RTK diff Cargo.toml LICENSE"
+
+# ===================
+# smart
+# ===================
+section "smart"
+bench "smart main.rs" "cat src/main.rs" "$RTK smart src/main.rs"
+
+# ===================
+# wc
+# ===================
+section "wc"
+bench "wc" "wc Cargo.toml src/main.rs" "$RTK wc Cargo.toml src/main.rs"
+
+# ===================
+# curl
+# ===================
+section "curl"
+if command -v curl &> /dev/null; then
+  bench "curl json" "curl -s https://httpbin.org/json" "$RTK curl https://httpbin.org/json"
+  bench "curl text" "curl -s https://httpbin.org/robots.txt" "$RTK curl https://httpbin.org/robots.txt"
+fi
+
+# ===================
+# wget
+# ===================
+if command -v wget &> /dev/null; then
+  section "wget"
+  bench "wget" "wget -qO- https://httpbin.org/robots.txt" "$RTK wget https://httpbin.org/robots.txt -O"
+fi
 
 # ===================
 # Modern JavaScript Stack (skip si pas de package.json)
@@ -381,8 +453,8 @@ def test_process_data_none():
     assert process_data(None) == []
 PYEOF
 
-  bench "ruff check" "ruff check . 2>&1 || true" "$RTK test ruff check ."
-  bench "pytest" "pytest -v 2>&1 || true" "$RTK test pytest -v"
+  bench "ruff check" "ruff check . 2>&1 || true" "$RTK ruff check ."
+  bench "pytest" "pytest -v 2>&1 || true" "$RTK pytest -v"
 
   cd - > /dev/null
   rm -rf "$PYTHON_FIXTURE"
@@ -445,12 +517,45 @@ func TestMultiply(t *testing.T) {
 }
 GOEOF
 
-  bench "golangci-lint" "golangci-lint run 2>&1 || true" "$RTK test golangci-lint run"
-  bench "go test" "go test -v 2>&1 || true" "$RTK test go test -v"
+  bench "golangci-lint" "golangci-lint run 2>&1 || true" "$RTK golangci-lint run"
+  bench "go test" "go test -v 2>&1 || true" "$RTK go test -v"
+  bench "go build" "go build ./... 2>&1 || true" "$RTK go build ./..."
+  bench "go vet" "go vet ./... 2>&1 || true" "$RTK go vet ./..."
 
   cd - > /dev/null
   rm -rf "$GO_FIXTURE"
 fi
+
+# ===================
+# rewrite (verify rewrite works with and without quotes)
+# ===================
+section "rewrite"
+
+# bench_rewrite: verifies rewrite produces expected output (not token comparison)
+bench_rewrite() {
+  local name="$1"
+  local cmd="$2"
+  local expected="$3"
+
+  result=$(eval "$cmd" 2>&1 || true)
+
+  TOTAL_TESTS=$((TOTAL_TESTS + 1))
+
+  if [ "$result" = "$expected" ]; then
+    printf "✅ %-24s │ %-40s │ %s\n" "$name" "$cmd" "$result"
+    GOOD_TESTS=$((GOOD_TESTS + 1))
+  else
+    printf "❌ %-24s │ %-40s │ got: %s (expected: %s)\n" "$name" "$cmd" "$result" "$expected"
+    FAIL_TESTS=$((FAIL_TESTS + 1))
+  fi
+}
+
+bench_rewrite "rewrite quoted"       "$RTK rewrite 'git status'"     "rtk git status"
+bench_rewrite "rewrite unquoted"     "$RTK rewrite git status"       "rtk git status"
+bench_rewrite "rewrite ls -al"       "$RTK rewrite ls -al"           "rtk ls -al"
+bench_rewrite "rewrite npm exec"     "$RTK rewrite npm exec"         "rtk npm exec"
+bench_rewrite "rewrite cargo test"   "$RTK rewrite cargo test"       "rtk cargo test"
+bench_rewrite "rewrite compound"     "$RTK rewrite 'cargo test && git push'" "rtk cargo test && rtk git push"
 
 # ===================
 # Résumé global

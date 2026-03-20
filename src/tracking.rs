@@ -221,6 +221,9 @@ pub struct MonthStats {
     pub avg_time_ms: u64,
 }
 
+/// Type alias for command statistics tuple: (command, count, saved_tokens, avg_savings_pct, avg_time_ms)
+type CommandStats = (String, usize, usize, f64, u64);
+
 impl Tracker {
     /// Create a new tracker instance.
     ///
@@ -251,6 +254,12 @@ impl Tracker {
         }
 
         let conn = Connection::open(&db_path)?;
+        // WAL mode + busy_timeout for concurrent access (multiple Claude Code instances).
+        // Non-fatal: NFS/read-only filesystems may not support WAL.
+        let _ = conn.execute_batch(
+            "PRAGMA journal_mode=WAL;
+             PRAGMA busy_timeout=5000;",
+        );
         conn.execute(
             "CREATE TABLE IF NOT EXISTS commands (
                 id INTEGER PRIMARY KEY,
@@ -488,6 +497,7 @@ impl Tracker {
     ///     summary.total_saved, summary.avg_savings_pct);
     /// # Ok::<(), anyhow::Error>(())
     /// ```
+    #[allow(dead_code)]
     pub fn get_summary(&self) -> Result<GainSummary> {
         self.get_summary_filtered(None) // delegate to filtered variant
     }
@@ -560,7 +570,7 @@ impl Tracker {
     fn get_by_command(
         &self,
         project_path: Option<&str>, // added
-    ) -> Result<Vec<(String, usize, usize, f64, u64)>> {
+    ) -> Result<Vec<CommandStats>> {
         let (project_exact, project_glob) = project_filter_params(project_path); // added
         let mut stmt = self.conn.prepare(
             "SELECT rtk_cmd, COUNT(*), SUM(saved_tokens), AVG(savings_pct), AVG(exec_time_ms)
@@ -851,6 +861,7 @@ impl Tracker {
     /// }
     /// # Ok::<(), anyhow::Error>(())
     /// ```
+    #[allow(dead_code)]
     pub fn get_recent(&self, limit: usize) -> Result<Vec<CommandRecord>> {
         self.get_recent_filtered(limit, None) // delegate to filtered variant
     }
@@ -886,6 +897,66 @@ impl Tracker {
 
         Ok(rows.collect::<Result<Vec<_>, _>>()?)
     }
+
+    /// Count commands since a given timestamp (for telemetry).
+    pub fn count_commands_since(&self, since: chrono::DateTime<chrono::Utc>) -> Result<i64> {
+        let ts = since.format("%Y-%m-%dT%H:%M:%S").to_string();
+        let count: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM commands WHERE timestamp >= ?1",
+            params![ts],
+            |row| row.get(0),
+        )?;
+        Ok(count)
+    }
+
+    /// Get top N commands by frequency (for telemetry).
+    pub fn top_commands(&self, limit: usize) -> Result<Vec<String>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT rtk_cmd, COUNT(*) as cnt FROM commands
+             GROUP BY rtk_cmd ORDER BY cnt DESC LIMIT ?1",
+        )?;
+        let rows = stmt.query_map(params![limit as i64], |row| {
+            let cmd: String = row.get(0)?;
+            // Extract just the command name (e.g. "rtk git status" → "git")
+            Ok(cmd.split_whitespace().nth(1).unwrap_or(&cmd).to_string())
+        })?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+
+    /// Get overall savings percentage (for telemetry).
+    pub fn overall_savings_pct(&self) -> Result<f64> {
+        let (total_input, total_saved): (i64, i64) = self.conn.query_row(
+            "SELECT COALESCE(SUM(input_tokens), 0), COALESCE(SUM(saved_tokens), 0) FROM commands",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+        if total_input > 0 {
+            Ok((total_saved as f64 / total_input as f64) * 100.0)
+        } else {
+            Ok(0.0)
+        }
+    }
+
+    /// Get total tokens saved across all tracked commands (for telemetry).
+    pub fn total_tokens_saved(&self) -> Result<i64> {
+        let saved: i64 = self.conn.query_row(
+            "SELECT COALESCE(SUM(saved_tokens), 0) FROM commands",
+            [],
+            |row| row.get(0),
+        )?;
+        Ok(saved)
+    }
+
+    /// Get tokens saved in the last 24 hours (for telemetry).
+    pub fn tokens_saved_24h(&self, since: chrono::DateTime<chrono::Utc>) -> Result<i64> {
+        let ts = since.format("%Y-%m-%dT%H:%M:%S").to_string();
+        let saved: i64 = self.conn.query_row(
+            "SELECT COALESCE(SUM(saved_tokens), 0) FROM commands WHERE timestamp >= ?1",
+            params![ts],
+            |row| row.get(0),
+        )?;
+        Ok(saved)
+    }
 }
 
 fn get_db_path() -> Result<PathBuf> {
@@ -911,6 +982,7 @@ fn get_db_path() -> Result<PathBuf> {
 pub struct ParseFailureRecord {
     pub timestamp: String,
     pub raw_command: String,
+    #[allow(dead_code)]
     pub error_message: String,
     pub fallback_succeeded: bool,
 }
@@ -1115,6 +1187,7 @@ pub fn args_display(args: &[OsString]) -> String {
 /// timer.track("ls -la", "rtk ls", "input", "output");
 /// ```
 #[deprecated(note = "Use TimedExecution instead")]
+#[allow(dead_code)]
 pub fn track(original_cmd: &str, rtk_cmd: &str, input: &str, output: &str) {
     let input_tokens = estimate_tokens(input);
     let output_tokens = estimate_tokens(output);
